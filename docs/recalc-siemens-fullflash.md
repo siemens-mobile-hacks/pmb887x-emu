@@ -14,10 +14,12 @@ This can be done with a few simple steps:
     - **ESN:** 12345678
     - **SKEY:** 12345678
     
-    And press button "Calc HASH + BootKEY from ESN and SKEY"
-
-3. Then go in tab "Convert" and press button "Recalc Fullflash".
+    ![recalc-flash-0.png](recalc-flash-0.png)
     
-   In opened window select your input fullflash and output file.
+3. Press button "Calc HASH + BootKEY from ESN and SKEY".
+
+3. Go in tab "Convert" and press button "Recalc Fullflash". In opened window select your input fullflash and output file.
+
+    ![recalc-flash-1.png](recalc-flash-1.png)
 
 5. Done. Now you can use new saved fullflash in the emulator.
