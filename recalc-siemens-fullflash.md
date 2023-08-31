@@ -13,8 +13,8 @@ This can be done with a few simple steps:
     - **IMEI:** 490154203237518
     - **ESN:** 12345678
     - **SKEY:** 12345678
+    
     And press button "Calc HASH + BootKEY from ESN and SKEY"
-    All other fields not necessary for this operation.
 
 3. Then go in tab "Convert" and press button "Recalc Fullflash".
     
