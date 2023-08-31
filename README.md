@@ -9,10 +9,9 @@ sudo apt-get build-dep qemu
 # Clone from GIT
 git clone https://github.com/Azq2/pmb887x-emu
 cd pmb887x-emu
-git submodule update --init --recursive
+git submodule update --init
 
 # Configure and build
-./build.sh configure
 ./build.sh
 ```
 
