@@ -1,14 +1,58 @@
 #!/bin/bash
 set -e
-set -x
 
 SRC=$(realpath $(dirname "$(realpath $0)")/..)
 
-[[ -d "$SRC/build/qemu" ]] || mkdir -p "$SRC/build/qemu"
-cd "$SRC/build/qemu"
+BUILD_DIR="$SRC/build/qemu"
 
-[[ -e "$SRC/build/qemu/Makefile.ninja" ]] || "$SRC/qemu/configure" --disable-user --target-list=arm-softmmu --disable-werror \
-	--disable-install-blobs --enable-strip --disable-docs --disable-tools --enable-lto
+[[ -d "$BUILD_DIR" ]] || mkdir -p "$BUILD_DIR"
+cd "$BUILD_DIR"
+
+[[ "$1" == "configure" ]] && rm -f "$BUILD_DIR/.configured"
+
+# --enable-lto
+# --enable-strip
+# --enable-blkio
+# --enable-pipewire
+# --enable-vte
+# --enable-libdw
+
+[[ -e "$BUILD_DIR/.configured" ]] || {
+	"$SRC/qemu/configure" \
+		--target-list=arm-softmmu \
+		--disable-werror \
+		--disable-install-blobs \
+		--without-default-features \
+		--enable-avx2 \
+		--enable-avx512bw \
+		--enable-avx512f \
+		--enable-dbus-display \
+		--enable-gettext \
+		--enable-gio \
+		--enable-gtk \
+		--enable-gtk-clipboard \
+		--enable-iconv \
+		--enable-libpmem \
+		--enable-libudev \
+		--enable-linux-aio \
+		--enable-linux-io-uring \
+		--enable-malloc-trim \
+		--enable-multiprocess \
+		--enable-opengl \
+		--enable-pa \
+		--enable-sdl \
+		--enable-sdl-image \
+		--enable-spice \
+		--enable-spice-protocol \
+		--enable-tcg \
+		--enable-virglrenderer \
+		--enable-vnc \
+		--enable-vnc-jpeg \
+		--enable-vnc-sasl \
+		--enable-xkbcommon \
+		--enable-pie \
+		--enable-stack-protector
+	touch "$BUILD_DIR/.configured"
+}
 
 make -j$((`nproc` + 1))
-# DESTDIR="$SRC/build/qemu-bin" make install

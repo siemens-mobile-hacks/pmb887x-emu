@@ -45,15 +45,18 @@ sub main {
 	help() if $options{help};
 	
 	# Siemens OTP
-	$ENV{PMB887X_OTP0} = esnToOtp($options{siemens_esn}) if $options{siemens_esn};
-	$ENV{PMB887X_OTP1} = imeiToOtp($options{siemens_imei}) if $options{siemens_imei};
+	$ENV{PMB887X_FLASH_OTP0} = esnToOtp($options{siemens_esn}) if $options{siemens_esn};
+	$ENV{PMB887X_FLASH_OTP1} = imeiToOtp($options{siemens_imei}) if $options{siemens_imei};
 	
 	# Raw OTP
-	$ENV{PMB887X_OTP0} = $options{flash_otp0} if $options{flash_otp0};
-	$ENV{PMB887X_OTP1} = $options{flash_otp1} if $options{flash_otp1};
+	$ENV{PMB887X_FLASH_OTP0} = $options{flash_otp0} if $options{flash_otp0};
+	$ENV{PMB887X_FLASH_OTP1} = $options{flash_otp1} if $options{flash_otp1};
+	
+	my $qemu = getQemuBin();
+	die "QEMU not found!\n" if !$qemu;
 	
 	my @qemu_args = (
-		getQemuBin(),
+		$qemu,
 		"-icount"	=> "precise-clocks=on",
 		"-machine"	=> $options{device},
 		"-drive"	=> "if=pflash,format=raw,file=".$options{fullflash},
@@ -62,6 +65,7 @@ sub main {
 	
 	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
 	print "[exec] $qemu_cmd\n";
+	exec $qemu_cmd;
 }
 
 sub help {
@@ -138,17 +142,21 @@ sub esnToOtp {
 	return "0002".$otp_esn.("00" x 4);
 }
 
+sub isWin {
+	return $^O =~ /win/;
+}
+
 sub getQemuBin {
-	my @variants = (
+	my @variants = isWin() ? (
 		# win
 		dirname(__FILE__)."/bin/qemu-system-arm.exe",
-		dirname(__FILE__)."/build/dist-win/bin/qemu-system-arm.exe",
 		dirname(__FILE__)."/build/qemu-win/qemu-system-arm.exe",
-		
+		dirname(__FILE__)."/build/dist-win/bin/qemu-system-arm.exe",
+	) : (
 		# linux & osx
 		dirname(__FILE__)."/bin/qemu-system-arm",
-		dirname(__FILE__)."/build/dist/bin/qemu-system-arm",
 		dirname(__FILE__)."/build/qemu/qemu-system-arm",
+		dirname(__FILE__)."/build/dist/bin/qemu-system-arm",
 	);
 	my ($qemu_bin) = grep { -x $_ } @variants;
 	return $qemu_bin;
