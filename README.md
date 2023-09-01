@@ -12,7 +12,7 @@ cd pmb887x-emu
 git submodule update --init
 
 # Configure and build
-./build.sh
+./tools/build.sh
 ```
 
 # Supported hardware

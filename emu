@@ -1,0 +1,163 @@
+#!/usr/bin/perl
+use warnings;
+use strict;
+use Encode;
+use Getopt::Long;
+use File::Basename;
+use List::Util qw(min max);
+
+my $SELF_CMD = $0;
+
+my %options = (
+	# common
+	device			=> "siemens-el71",
+	fullflash		=> "./ff.bin",
+	rw				=> 0,
+	help			=> 0,
+	
+	# OTP
+	flash_otp0		=> undef,
+	flash_otp1		=> undef,
+	siemens_esn		=> undef,
+	siemens_imei	=> undef,
+	
+	# debug
+	gdb				=> 0
+);
+
+main();
+
+sub main {
+	GetOptions(
+		"device=s"			=> \$options{device},
+		"fullflash=s"		=> \$options{fullflash},
+		"rw"				=> \$options{rw},
+		"help"				=> \$options{help},
+		"flash-otp0=s"		=> \$options{flash_otp0},
+		"flash-otp1=s"		=> \$options{flash_otp1},
+		"siemens-esn=s"		=> \$options{siemens_esn},
+		"siemens-imei=s"	=> \$options{siemens_imei},
+	);
+	
+	# Default emulator ESN
+	$options{siemens_esn} = "12345678" if !$options{siemens_esn} && $options{device} =~ /^siemens-/;
+	
+	help() if $options{help};
+	
+	# Siemens OTP
+	$ENV{PMB887X_OTP0} = esnToOtp($options{siemens_esn}) if $options{siemens_esn};
+	$ENV{PMB887X_OTP1} = imeiToOtp($options{siemens_imei}) if $options{siemens_imei};
+	
+	# Raw OTP
+	$ENV{PMB887X_OTP0} = $options{flash_otp0} if $options{flash_otp0};
+	$ENV{PMB887X_OTP1} = $options{flash_otp1} if $options{flash_otp1};
+	
+	my @qemu_args = (
+		getQemuBin(),
+		"-icount"	=> "precise-clocks=on",
+		"-machine"	=> $options{device},
+		"-drive"	=> "if=pflash,format=raw,file=".$options{fullflash},
+		"-monitor"	=> "none",
+	);
+	
+	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
+	print "[exec] $qemu_cmd\n";
+}
+
+sub help {
+	my $help = [
+		"$SELF_CMD <options>",
+		"",
+		"Common options:",
+		[
+			[" --deivce=siemens-el71",		"Device type."],
+			[" --fullflash=ff.bin",			"Path to device fullflash dump."],
+			[" --rw",						"Enable rw access to the original fullflash. Dangerous!"],
+			[" --help",						"Show this message."]
+		],
+		"",
+		"OTP options:",
+		[
+			[" --flash-otp0=FFFF",					"Raw NOR flash otp0 value in HEX (with lock bits)."],
+			[" --flash-otp1=FFFF",					"Raw NOR flash otp1 value in HEX (with lock bits)."],
+			[" --siemens-esn=12345678",				"Siemens OTP ESN (HEX)."],
+			[" --siemens-imei=490154203237518",		"Siemens OTP IMEI (number)."],
+		],
+		"",
+		"Debug:",
+		[
+			[" --gdb",				"Enable GDB server."],
+			[" --trace-io=-all",	"CPU IO tracing."],
+			[" --trace-log=-all",	"CPU emulation logs."],
+		]
+	];
+	
+	my $FIRST_ROW_WIDTH = 36;
+	
+	for my $msg (@$help) {
+		if (ref($msg)) {
+			for my $row (@$msg) {
+				print $row->[0];
+				print (" " x ($FIRST_ROW_WIDTH - length($row->[0])));
+				print $row->[1];
+				print "\n";
+			}
+		} else {
+			print $msg."\n";
+		}
+	}
+	exit(0);
+}
+
+sub imeiToOtp {
+	my ($imei) = @_;
+	
+	die "Invalid IMEI: $imei\n" if length($imei) != 15;
+	
+	my $otp_imei = "";
+	for (my $i = 0; $i < length($imei) - 1; $i += 2) {
+		my $a = substr($imei, $i, 1);
+		my $b = substr($imei, $i + 1, 1);
+		$otp_imei .= $b.$a;
+	}
+	
+	return "0002".$otp_imei."FF";
+}
+
+sub esnToOtp {
+	my ($esn) = @_;
+	
+	die "Invalid ESN: $esn\n" if length($esn) != 8;
+	
+	my @ESN_KEY = (0x32, 0xE5, 0xF7, 0x03);
+	my $otp_esn = "";
+	for (my $i = 0; $i < 4; $i++) {
+		my $byte = hex(substr($esn, (3 - $i) * 2, 2)) ^ $ESN_KEY[$i];
+		$otp_esn .= sprintf("%02X", $byte);
+	}
+	return "0002".$otp_esn.("00" x 4);
+}
+
+sub getQemuBin {
+	my @variants = (
+		# win
+		dirname(__FILE__)."/bin/qemu-system-arm.exe",
+		dirname(__FILE__)."/build/dist-win/bin/qemu-system-arm.exe",
+		dirname(__FILE__)."/build/qemu-win/qemu-system-arm.exe",
+		
+		# linux & osx
+		dirname(__FILE__)."/bin/qemu-system-arm",
+		dirname(__FILE__)."/build/dist/bin/qemu-system-arm",
+		dirname(__FILE__)."/build/qemu/qemu-system-arm",
+	);
+	my ($qemu_bin) = grep { -x $_ } @variants;
+	return $qemu_bin;
+}
+
+sub escapeshellarg {
+	my ($arg) = @_;
+	$arg = "$arg";
+	return $arg if $arg =~ /^[,.\/\w\d=_-]+$/;
+	$arg =~ s/'/'\\''/g;
+	return "'$arg'";
+}

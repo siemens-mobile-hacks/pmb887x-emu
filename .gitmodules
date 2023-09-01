@@ -1,6 +1,6 @@
 [submodule "qemu"]
 	path = qemu
 	url = https://github.com/Azq2/qemu-pmb887x
-[submodule "utils"]
-	path = utils
+[submodule "bsp"]
+	path = bsp
 	url = https://github.com/Azq2/pmb887x-dev
