@@ -28,6 +28,8 @@ my %options = (
 main();
 
 sub main {
+	print "Hello, windows user. Why you still use this strange OS?\n" if isWin();
+	
 	GetOptions(
 		"device=s"			=> \$options{device},
 		"fullflash=s"		=> \$options{fullflash},
@@ -44,13 +46,15 @@ sub main {
 	
 	help() if $options{help};
 	
+	my %QEMU_ENV;
+	
 	# Siemens OTP
-	$ENV{PMB887X_FLASH_OTP0} = esnToOtp($options{siemens_esn}) if $options{siemens_esn};
-	$ENV{PMB887X_FLASH_OTP1} = imeiToOtp($options{siemens_imei}) if $options{siemens_imei};
+	$QEMU_ENV{PMB887X_FLASH_OTP0} = esnToOtp($options{siemens_esn}) if $options{siemens_esn};
+	$QEMU_ENV{PMB887X_FLASH_OTP1} = imeiToOtp($options{siemens_imei}) if $options{siemens_imei};
 	
 	# Raw OTP
-	$ENV{PMB887X_FLASH_OTP0} = $options{flash_otp0} if $options{flash_otp0};
-	$ENV{PMB887X_FLASH_OTP1} = $options{flash_otp1} if $options{flash_otp1};
+	$QEMU_ENV{PMB887X_FLASH_OTP0} = $options{flash_otp0} if $options{flash_otp0};
+	$QEMU_ENV{PMB887X_FLASH_OTP1} = $options{flash_otp1} if $options{flash_otp1};
 	
 	my $qemu = getQemuBin();
 	die "QEMU not found!\n" if !$qemu;
@@ -64,8 +68,21 @@ sub main {
 	);
 	
 	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
-	print "[exec] $qemu_cmd\n";
-	exec $qemu_cmd;
+	
+	print "---------------------------------------------------\n";
+	for my $k (sort keys %QEMU_ENV) {
+		print "set $k=".$QEMU_ENV{$k}."\n";
+		$ENV{$k} = $QEMU_ENV{$k};
+	}
+	
+	delete $ENV{GTK_MODULES};
+	delete $ENV{GTK2_MODULES};
+	delete $ENV{GTK3_MODULES};
+	
+	print "$qemu_cmd\n";
+	print "---------------------------------------------------\n";
+	
+	system $qemu_cmd;
 }
 
 sub help {
@@ -143,14 +160,13 @@ sub esnToOtp {
 }
 
 sub isWin {
-	return $^O =~ /win/;
+	return $^O =~ /win32/i;
 }
 
 sub getQemuBin {
 	my @variants = isWin() ? (
 		# win
 		dirname(__FILE__)."/bin/qemu-system-arm.exe",
-		dirname(__FILE__)."/build/qemu-win/qemu-system-arm.exe",
 		dirname(__FILE__)."/build/dist-win/bin/qemu-system-arm.exe",
 	) : (
 		# linux & osx
