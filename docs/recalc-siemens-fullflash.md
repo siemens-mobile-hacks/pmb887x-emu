@@ -10,7 +10,7 @@ This can be done with a few simple steps:
 
 1. Download [x65PapuaUtils V1.1.1b](https://web.archive.org/web/20120711125854/http://forum.allsiemens.com/download.php?id=67331) (works fine in wine)
 2. Go in tab "Codes" and enter this values:
-    - **IMEI:** 490154203237518
+    - **IMEI:** 490154203237518 (or any other)
     - **ESN:** 12345678
     - **SKEY:** 12345678
     
