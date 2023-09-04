@@ -6,6 +6,8 @@ use Getopt::Long;
 use File::Basename;
 use List::Util qw(min max);
 
+$| = 1;
+
 my $SELF_CMD = $0;
 
 my %options = (
@@ -42,7 +44,7 @@ sub main {
 	);
 	
 	# Default emulator ESN
-	$options{siemens_esn} = "12345678" if !$options{siemens_esn} && $options{device} =~ /^siemens-/;
+	$options{siemens_esn} = "12345678" if !$options{siemens_esn} && $options{device} =~ /siemens-/i;
 	
 	help() if $options{help};
 	
@@ -56,15 +58,21 @@ sub main {
 	$QEMU_ENV{PMB887X_FLASH_OTP0} = $options{flash_otp0} if $options{flash_otp0};
 	$QEMU_ENV{PMB887X_FLASH_OTP1} = $options{flash_otp1} if $options{flash_otp1};
 	
+	# Board config
+	my $cfg = getBoardConfig($options{device});
+	die $options{device}.".cfg not found!" if !$cfg;
+	$QEMU_ENV{PMB887X_BOARD} = $cfg;
+	
 	my $qemu = getQemuBin();
 	die "QEMU not found!\n" if !$qemu;
 	
 	my @qemu_args = (
 		$qemu,
 		"-icount"	=> "precise-clocks=on",
-		"-machine"	=> $options{device},
+		"-machine"	=> "pmb887x",
 		"-drive"	=> "if=pflash,format=raw,file=".$options{fullflash},
 		"-monitor"	=> "none",
+		"-serial",	=> "unix:/tmp/siemens.sock",
 	);
 	
 	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
@@ -161,6 +169,17 @@ sub esnToOtp {
 
 sub isWin {
 	return $^O =~ /win32/i;
+}
+
+sub getBoardConfig {
+	my ($device) = @_;
+	return $device if $device =~ /\.cfg$/i;
+	my @variants = (
+		dirname(__FILE__)."/boards/$device.cfg",
+		dirname(__FILE__)."/bsp/lib/data/board/$device.cfg",
+	);
+	my ($config) = grep { -e $_ } @variants;
+	return $config;
 }
 
 sub getQemuBin {
