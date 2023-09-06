@@ -41,6 +41,7 @@ sub main {
 		"flash-otp1=s"		=> \$options{flash_otp1},
 		"siemens-esn=s"		=> \$options{siemens_esn},
 		"siemens-imei=s"	=> \$options{siemens_imei},
+		"gdb"				=> \$options{gdb},
 	);
 	
 	# Default emulator ESN
@@ -72,8 +73,13 @@ sub main {
 		"-machine"	=> "pmb887x",
 		"-drive"	=> "if=pflash,format=raw,file=".$options{fullflash},
 		"-monitor"	=> "none",
-		"-serial",	=> "unix:/tmp/siemens.sock",
+		"-serial"	=> "unix:/tmp/siemens.sock",
 	);
+	
+	if ($options{gdb}) {
+		push @qemu_args, "-S";
+		push @qemu_args, "-s";
+	}
 	
 	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
 	
