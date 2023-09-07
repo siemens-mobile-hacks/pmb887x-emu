@@ -24,14 +24,14 @@ my %options = (
 	siemens_imei	=> undef,
 	
 	# debug
-	gdb				=> 0
+	gdb				=> 0,
+	usartd			=> 0,
+	debug			=> 0,
 );
 
 main();
 
 sub main {
-	print "Hello, windows user. Why you still use this strange OS?\n" if isWin();
-	
 	GetOptions(
 		"device=s"			=> \$options{device},
 		"fullflash=s"		=> \$options{fullflash},
@@ -42,6 +42,8 @@ sub main {
 		"siemens-esn=s"		=> \$options{siemens_esn},
 		"siemens-imei=s"	=> \$options{siemens_imei},
 		"gdb"				=> \$options{gdb},
+		"usartd"			=> \$options{usartd},
+		"debug"				=> \$options{debug},
 	);
 	
 	# Default emulator ESN
@@ -63,6 +65,7 @@ sub main {
 	my $cfg = getBoardConfig($options{device});
 	die $options{device}.".cfg not found!" if !$cfg;
 	$QEMU_ENV{PMB887X_BOARD} = $cfg;
+	$QEMU_ENV{QEMU_ARM_STOP_ON_EXCP} = 1;
 	
 	my $qemu = getQemuBin();
 	die "QEMU not found!\n" if !$qemu;
@@ -73,12 +76,19 @@ sub main {
 		"-machine"	=> "pmb887x",
 		"-drive"	=> "if=pflash,format=raw,file=".$options{fullflash},
 		"-monitor"	=> "none",
-		"-serial"	=> "unix:/tmp/siemens.sock",
 	);
 	
-	if ($options{gdb}) {
-		push @qemu_args, "-S";
-		push @qemu_args, "-s";
+	push @qemu_args, "-d", "int" if $options{debug};
+	push @qemu_args, "-S", "-s" if $options{gdb};
+	
+	if ($options{usartd}) {
+		if (isWin()) {
+			push @qemu_args, "-serial" => "tcp:127.0.0.1:11111";
+		} else {
+			push @qemu_args, "-serial" => "unix:/tmp/siemens.sock";
+		}
+	} else {
+		push @qemu_args, "-serial" => "stdio" if isWin();
 	}
 	
 	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
@@ -170,7 +180,7 @@ sub esnToOtp {
 		my $byte = hex(substr($esn, (3 - $i) * 2, 2)) ^ $ESN_KEY[$i];
 		$otp_esn .= sprintf("%02X", $byte);
 	}
-	return "0002".$otp_esn.("00" x 4);
+	return "0200".$otp_esn.("00" x 4);
 }
 
 sub isWin {
@@ -206,7 +216,13 @@ sub getQemuBin {
 sub escapeshellarg {
 	my ($arg) = @_;
 	$arg = "$arg";
+	
 	return $arg if $arg =~ /^[,.\/\w\d=_-]+$/;
+	
+	if (isWin()) {
+		return "\"$arg\"";
+	}
+	
 	$arg =~ s/'/'\\''/g;
 	return "'$arg'";
 }
