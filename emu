@@ -46,8 +46,9 @@ sub main {
 		"debug"				=> \$options{debug},
 	);
 	
-	# Default emulator ESN
+	# Default emulator ESN and IMEI
 	$options{siemens_esn} = "12345678" if !$options{siemens_esn} && $options{device} =~ /siemens-/i;
+	$options{siemens_imei} = "490154203237518" if !$options{siemens_imei} && $options{device} =~ /siemens-/i;
 	
 	help() if $options{help};
 	
@@ -166,7 +167,7 @@ sub imeiToOtp {
 		$otp_imei .= $b.$a;
 	}
 	
-	return "0002".$otp_imei."FF";
+	return "0000".$otp_imei."FF";
 }
 
 sub esnToOtp {
