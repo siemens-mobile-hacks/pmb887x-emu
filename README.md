@@ -16,6 +16,15 @@ git submodule update --init
 ```
 
 # Supported hardware
-| Phone             | CPU     | LCD     | FLASH     |
-|-------------------|---------|---------|-----------|
-| BenQ-Siemens EL71 | pmb8876 | jbt6k71 | 0020:8819 |
+| Phone                    | CPU     | LCD     | FLASH     |
+|--------------------------|---------|---------|-----------|
+| BenQ-Siemens EL71 / C1F0 | pmb8876 | jbt6k71 | 0020:8819 |
+
+# TODO
+- SGold2 boards:
+  - [ ] BenQ-Siemens SL75
+  - [ ] BenQ-Siemens S75
+  - [ ] BenQ-Siemens C81
+  - [ ] BenQ-Siemens M81
+  - [ ] BenQ-Siemens S68
+  - [ ] BenQ-Siemens E71 / M72
