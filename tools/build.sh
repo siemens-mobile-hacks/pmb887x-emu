@@ -32,7 +32,6 @@ cd "$BUILD_DIR"
 		--enable-gtk \
 		--enable-gtk-clipboard \
 		--enable-iconv \
-		--enable-libpmem \
 		--enable-libudev \
 		--enable-linux-aio \
 		--enable-linux-io-uring \
