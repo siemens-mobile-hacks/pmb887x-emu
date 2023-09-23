@@ -21,4 +21,3 @@ cd "$BUILD_DIR"
 }
 
 make -j$((`nproc` + 1))
-"$SRC/tools/make_dist_osx.sh"
