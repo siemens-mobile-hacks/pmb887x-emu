@@ -1,6 +1,8 @@
 # Prebuilded releases
 For Windows you can download in releases: https://github.com/Azq2/pmb887x-emu/releases
 
+Also, for windows required perl: https://strawberryperl.com/
+
 For MacOS/Linux you must build itself. Unix way :)
 
 # Building
@@ -48,7 +50,6 @@ git submodule update --init
 ./tools/build_osx.sh
 ./tools/make_dist_osx.sh # optional, for .tar.gz with release
 ```
-
 
 # Supported hardware
 | Phone                    | CPU     | LCD     | FLASH     |
