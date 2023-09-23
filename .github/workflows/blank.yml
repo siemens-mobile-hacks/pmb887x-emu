@@ -21,6 +21,7 @@ jobs:
           sudo sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get -y build-dep qemu
+          sudo apt-get -y install meson gcc-mingw-w64
 
       - name: Building emulator for Linux
         run: tools/build.sh
