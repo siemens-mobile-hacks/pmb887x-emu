@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  windows:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -24,6 +24,14 @@ jobs:
           wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-i686-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-i686-dev.deb
           wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-x86-64-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-x86-64-dev.deb
           sudo dpkg -i /tmp/mingw-w64-i686-dev.deb /tmp/mingw-w64-x86-64-dev.deb
-          
-      - name: Building emulator for Windows
+      
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "latest"
+          prerelease: true
+          title: "Development Build (windows)"
+          files: /tmp/pmb887x-emu.zip
+      
+      - name: Building emulator
         run: tools/build_win.sh
