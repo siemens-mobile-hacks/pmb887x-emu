@@ -41,7 +41,6 @@ cd "$BUILD_DIR"
 		--enable-opengl \
 		--enable-pa \
 		--enable-sdl \
-		--enable-sdl-image \
 		--enable-spice \
 		--enable-spice-protocol \
 		--enable-tcg \
