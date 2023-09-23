@@ -43,7 +43,7 @@ jobs:
 
       - name: Installing qemu dependencies
         run: |
-          brew install llvm libffi gettext glib pkg-config pixman ninja meson
+          brew install llvm libffi gettext glib pkg-config pixman ninja meson coreutils
 
       - name: Building emulator
         run: |
