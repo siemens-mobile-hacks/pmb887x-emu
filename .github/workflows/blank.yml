@@ -25,12 +25,11 @@ jobs:
           wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-x86-64-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-x86-64-dev.deb
           sudo dpkg -i /tmp/mingw-w64-i686-dev.deb /tmp/mingw-w64-x86-64-dev.deb
       
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - uses: "softprops/action-gh-release"
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "latest"
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          tag_name: ${{ steps.version.outputs.version }}
           prerelease: true
-          title: "Development Build (windows)"
           files: /tmp/pmb887x-emu.zip
       
       - name: Building emulator
