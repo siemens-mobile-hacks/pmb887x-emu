@@ -13,7 +13,7 @@ rm -rf "$DIST_DIR"
 mkdir -p "$DIST_DIR/bin"
 
 find /usr/x86_64-w64-mingw32/lib/ -iname '*.dll' -exec cp -v {} "$DIST_DIR/bin" \;
-find /usr/lib/gcc/x86_64-w64-mingw32/12-win32 -iname '*.dll' -exec cp -v {} "$DIST_DIR/bin" \;
+find /usr/lib/gcc/x86_64-w64-mingw32/*-win32 -iname '*.dll' -exec cp -v {} "$DIST_DIR/bin" \;
 
 find "$LIBS_DIR" -iname '*.dll' -exec cp -v {} "$DIST_DIR/bin" \;
 cp -v "$BUILD_DIR/qemu-system-arm.exe" "$DIST_DIR/bin"
