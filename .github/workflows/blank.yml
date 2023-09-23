@@ -54,6 +54,6 @@ jobs:
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: true
-          files: /tmp/pmb887x-emu-osx.tar.gz
+          files: /tmp/pmb887x-emu-osx-arm.tar.gz
       
 
