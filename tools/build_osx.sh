@@ -3,7 +3,7 @@ set -e
 
 SRC=$(realpath $(dirname "$(realpath $0)")/..)
 
-BUILD_DIR="$SRC/build/qemu"
+BUILD_DIR="$SRC/build/qemu-osx"
 
 [[ -d "$BUILD_DIR" ]] || mkdir -p "$BUILD_DIR"
 cd "$BUILD_DIR"
@@ -21,3 +21,4 @@ cd "$BUILD_DIR"
 }
 
 make -j$((`nproc` + 1))
+"$SRC/tools/make_dist_osx.sh"
