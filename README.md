@@ -95,7 +95,7 @@ Let's assume you have fullflash. Of course, simple running commands from example
 That's because Siemens mobile is paranids and firmware has hardware binding.
 
 And you have two ways:
-1. Recalculate keys in firmware using following steps: docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md)
+1. Recalculate keys in firmware using following steps: [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md)
 2. Find original ESN and IMEI from your phone and run emulator like this:
 ```
 perl ./emu --fullflash EL71.bin --device siemens-el71  --siemens-esn=12345678 --siemens-imei=490154203237518
