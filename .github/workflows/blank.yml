@@ -44,7 +44,7 @@ jobs:
           brew install llvm libffi gettext glib pkg-config pixman ninja meson
 
       - name: Building emulator
-        run: tools/build_win.sh
+        run: tools/build_osx.sh
 
       - uses: softprops/action-gh-release@v1
         with:
