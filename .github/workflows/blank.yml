@@ -2,11 +2,8 @@ name: CI
 
 on:
   push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
-
-  workflow_dispatch:
+    tags:
+    - '*'
 
 jobs:
   windows:
@@ -28,7 +25,6 @@ jobs:
       - uses: softprops/action-gh-release@v1
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
-          tag_name: ${{ steps.version.outputs.version }}
           prerelease: true
           files: /tmp/pmb887x-emu.zip
       
