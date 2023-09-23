@@ -92,14 +92,19 @@ perl ./emu --fullflash EL71.bin --device siemens-el71  --siemens-esn=12345678 --
 
 Let's assume you have fullflash. Of course, simple running commands from examples do not work :)
 
-That's because Siemens mobile is paranids and firmware has hardware binding.
+That's because Siemens mobile is paranoids and firmware has hardware binding.
 
 And you have two ways:
 1. Recalculate keys in firmware using following steps: [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md)
+   
+   Then run emulator like this:
+   ```
+   perl ./emu --fullflash EL71.bin --device siemens-el71
+   ```
 2. Find original ESN and IMEI from your phone and run emulator like this:
-```
-perl ./emu --fullflash EL71.bin --device siemens-el71  --siemens-esn=12345678 --siemens-imei=490154203237518
-```
+   ```
+   perl ./emu --fullflash EL71.bin --device siemens-el71  --siemens-esn=12345678 --siemens-imei=490154203237518
+   ```
 
 Once the emulator is running, you should first see BENQ-Siemens boot screen and then something like this:
 ![A screenshot of a running emulator](docs/emu.png)
