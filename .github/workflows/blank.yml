@@ -24,7 +24,9 @@ jobs:
           sudo dpkg -i /tmp/mingw-w64-i686-dev.deb /tmp/mingw-w64-x86-64-dev.deb
 
       - name: Building emulator
-        run: tools/build_win.sh
+        run: |
+          tools/build_win.sh
+          tools/make_dist_win.sh
 
       - uses: softprops/action-gh-release@v1
         with:
@@ -44,7 +46,9 @@ jobs:
           brew install llvm libffi gettext glib pkg-config pixman ninja meson
 
       - name: Building emulator
-        run: tools/build_osx.sh
+        run: |
+          tools/build_osx.sh
+          tools/make_dist_osx.sh
 
       - uses: softprops/action-gh-release@v1
         with:
