@@ -22,7 +22,6 @@ jobs:
           sudo sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get -y install meson mingw-w64 mingw-w64-tools mingw-w64-i686-dev mingw-w64-x86-64-dev mingw-w64-common
-          apt-file search libpathcch
           dpkg -l | grep mingw
           ls -lah /usr/x86_64-w64-mingw32/lib/libpathcch.a
 
