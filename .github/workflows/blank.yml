@@ -29,5 +29,5 @@ jobs:
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: true
-          files: /tmp/pmb887x-emu.zip
+          files: /tmp/pmb887x-emu-windows.zip
       
