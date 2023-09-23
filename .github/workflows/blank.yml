@@ -13,13 +13,12 @@ jobs:
         with: 
           submodules: true
 
-      - name: Restore build cache
-        id: cache-build-restore
-        uses: actions/cache/restore@v3
+      - uses: actions/cache@v3
         with:
-          path: |
-            build
+          path: ./build
           key: ${{ runner.os }}-build
+          restore-keys: |
+            ${{ runner.os }}-build
 
       - name: Installing qemu dependencies
         run: |
@@ -32,14 +31,6 @@ jobs:
 
       - name: Building emulator
         run: tools/build_win.sh
-
-      - name: Save build cache
-        id: cache-build-save
-        uses: actions/cache/save@v3
-        with:
-          path: |
-            build
-          key: ${{ steps.cache-build-restore.outputs.cache-primary-key }}
 
       - uses: softprops/action-gh-release@v1
         with:
