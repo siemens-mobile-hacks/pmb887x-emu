@@ -13,12 +13,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with: 
+          submodules: true
 
       - name: Installing qemu dependencies
         run: |
           sudo sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
-          sudo apt update
-          sudo apt-get build-dep qemu
+          sudo apt-get update
+          sudo apt-get -y build-dep qemu
 
       - name: Building emulator for Linux
         run: tools/build.sh
