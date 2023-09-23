@@ -14,11 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Show me apt config
-        run: cat /etc/apt/sources.list
-
       - name: Installing qemu dependencies
-        run: sudo apt-get build-dep qemu
+        run: >
+          sudo sed -i 's/# deb-src//deb-src/g' /etc/apt/sources.list
+          sudo apt update
+          sudo apt-get build-dep qemu
 
       - name: Building emulator for Linux
         run: tools/build.sh
