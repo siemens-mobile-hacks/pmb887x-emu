@@ -1,7 +1,7 @@
 # Prebuilded releases
-For MacOS and Windows you can download in releases: https://github.com/Azq2/pmb887x-emu/releases
+For Windows you can download in releases: https://github.com/Azq2/pmb887x-emu/releases
 
-For Linux you must build itself. Linux way :)
+For MacOS/Linux you must build itself. Unix way :)
 
 # Building
 Linux
