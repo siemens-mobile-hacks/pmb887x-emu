@@ -19,6 +19,7 @@ git submodule update --init
 | Phone                    | CPU     | LCD     | FLASH     |
 |--------------------------|---------|---------|-----------|
 | BenQ-Siemens EL71 / C1F0 | pmb8876 | jbt6k71 | 0020:8819 |
+| BenQ-Siemens C81         | pmb8876 | ssd1286 | 0020:8819 |
 
 # Running
 1. Make sure to follow steps in [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md) for your fullflash file.
@@ -43,7 +44,6 @@ Full key mapping is defined in [board.c](https://github.com/Azq2/qemu-pmb887x/bl
 - SGold2 boards:
   - [ ] BenQ-Siemens SL75
   - [ ] BenQ-Siemens S75
-  - [ ] BenQ-Siemens C81
   - [ ] BenQ-Siemens M81
   - [ ] BenQ-Siemens S68
   - [ ] BenQ-Siemens E71 / M72
