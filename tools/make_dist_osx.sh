@@ -18,4 +18,4 @@ cp -v "$SRC/emu" "$DIST_DIR/emu"
 chmod +x "$DIST_DIR/emu"
 
 [[ -f "$DIST_OUT" ]] && rm "$DIST_OUT"
-tar -C "$DIST_DIR" -cpzvf "$DIST_OUT" -r .
+tar -C "$DIST_DIR" -cpzvf "$DIST_OUT" .
