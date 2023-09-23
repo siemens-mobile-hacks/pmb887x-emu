@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-23.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with: 
@@ -18,10 +18,12 @@ jobs:
 
       - name: Installing qemu dependencies
         run: |
+          lsb_release -a
           sudo sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get -y build-dep qemu
           sudo apt-get -y install meson mingw-w64 mingw-w64-tools mingw-w64-i686-dev mingw-w64-x86-64-dev mingw-w64-common
+          dpkg -l | grep mingw
 
       - name: Building emulator for Windows
         run: tools/build_win.sh
