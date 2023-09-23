@@ -31,4 +31,25 @@ jobs:
           token: "${{ secrets.GITHUB_TOKEN }}"
           prerelease: true
           files: /tmp/pmb887x-emu-windows.zip
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with: 
+          submodules: true
+
+      - name: Installing qemu dependencies
+        run: |
+          brew install llvm libffi gettext glib pkg-config pixman ninja meson
+
+      - name: Building emulator
+        run: tools/build_win.sh
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: true
+          files: /tmp/pmb887x-emu-osx.tar.gz
       
+
