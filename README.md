@@ -1,9 +1,13 @@
+# Prebuilded releases
+For MacOS and Windows you can download in releases: https://github.com/Azq2/pmb887x-emu/releases
+
+For Linux you must build itself. Linux way :)
+
 # Building
-
-At the moment, building and running is only supported on Linux or WSL2 (not tested).
-
+Linux
 ```bash
-# Install dependencies
+# Install dependencies (Ubuntu or Debian)
+sudo apt-get install perl
 sudo apt-get build-dep qemu
 
 # Clone from GIT
@@ -14,6 +18,37 @@ git submodule update --init
 # Configure and build
 ./tools/build.sh
 ```
+
+Windows (building on Ubuntu 23.04)
+```bash
+# Install dependencies
+sudo apt-get -y install meson mingw-w64 mingw-w64-tools mingw-w64-i686-dev mingw-w64-x86-64-dev mingw-w64-common
+
+# Clone from GIT
+git clone https://github.com/Azq2/pmb887x-emu
+cd pmb887x-emu
+git submodule update --init
+
+# Configure and build
+./tools/build_win.sh
+./tools/make_dist_win.sh # optional, for .zip with release
+```
+
+MacOS
+```bash
+# Install dependencies
+brew install llvm libffi gettext glib pkg-config pixman ninja meson coreutils perl
+
+# Clone from GIT
+git clone https://github.com/Azq2/pmb887x-emu
+cd pmb887x-emu
+git submodule update --init
+
+# Configure and build
+./tools/build_osx.sh
+./tools/make_dist_osx.sh # optional, for .tar.gz with release
+```
+
 
 # Supported hardware
 | Phone                    | CPU     | LCD     | FLASH     |
