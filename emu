@@ -188,6 +188,10 @@ sub isWin {
 	return $^O =~ /win32/i;
 }
 
+sub isMacOs {
+	return $^O =~ /darwin/i;
+}
+
 sub getBoardConfig {
 	my ($device) = @_;
 	return $device if $device =~ /\.cfg$/i;
@@ -207,8 +211,12 @@ sub getQemuBin {
 	) : (
 		# linux & osx
 		dirname(__FILE__)."/bin/qemu-system-arm",
+		# linux
 		dirname(__FILE__)."/build/qemu/qemu-system-arm",
 		dirname(__FILE__)."/build/dist/bin/qemu-system-arm",
+		# osx
+		dirname(__FILE__)."/build/qemu-osx/qemu-system-arm",
+		dirname(__FILE__)."/build/dist-osx/bin/qemu-system-arm",
 	);
 	my ($qemu_bin) = grep { -x $_ } @variants;
 	return $qemu_bin;
