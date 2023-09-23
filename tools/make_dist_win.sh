@@ -15,3 +15,7 @@ find "$LIBS_DIR" -iname '*.dll' -exec cp -v {} "$DIST_DIR/bin" \;
 cp -v "$BUILD_DIR/qemu-system-arm.exe" "$DIST_DIR/bin"
 rsync -av --delete "$BOARDS_DIR/" "$DIST_DIR/boards/"
 cp -v "$SRC/emu" "$DIST_DIR/emu"
+cd "$DIST_DIR"
+
+[[ -f /tmp/pmb887x-emu.zip ]] && rm /tmp/pmb887x-emu.zip
+zip /tmp/pmb887x-emu.zip -r .
