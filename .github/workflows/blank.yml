@@ -21,7 +21,9 @@ jobs:
           sudo sed -i 's/# deb-src/deb-src/g' /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get -y install meson mingw-w64 mingw-w64-tools mingw-w64-i686-dev mingw-w64-x86-64-dev mingw-w64-common
-          find / -iname '*pathcch*'
-
+          wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-i686-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-i686-dev.deb
+          wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-x86-64-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-x86-64-dev.deb
+          sudo dpkg -i /tmp/mingw-w64-i686-dev.deb /tmp/mingw-w64-x86-64-dev.deb
+          
       - name: Building emulator for Windows
         run: tools/build_win.sh
