@@ -27,6 +27,7 @@ my %options = (
 	gdb				=> 0,
 	usartd			=> 0,
 	debug			=> 0,
+	run_on_gdb		=> 0
 );
 
 main();
@@ -44,6 +45,7 @@ sub main {
 		"gdb"				=> \$options{gdb},
 		"usartd"			=> \$options{usartd},
 		"debug"				=> \$options{debug},
+		"run-on-gdb"		=> \$options{run_on_gdb},
 	);
 	
 	# Default emulator ESN and IMEI
@@ -72,15 +74,22 @@ sub main {
 	die "QEMU not found!\n" if !$qemu;
 	
 	my @qemu_args = (
+		($options{run_on_gdb} ? ("gdb", "--args") : ()),
 		$qemu,
 		"-icount"	=> "precise-clocks=on",
 		"-machine"	=> "pmb887x",
-		"-drive"	=> "if=pflash,format=raw,file=".$options{fullflash},
 		"-monitor"	=> "none",
 	);
 	
-	push @qemu_args, "-d", "int" if $options{debug};
-	push @qemu_args, "-S", "-s" if $options{gdb};
+	if ($options{rw}) {
+		print "Write mode enabled! Your fullflash will be rewritten!\n";
+		push @qemu_args, "-drive" => "if=pflash,format=raw,file=".$options{fullflash};
+	} else {
+		push @qemu_args, "-drive" => "if=pflash,readonly,format=raw,file=".$options{fullflash};
+	}
+	
+	push @qemu_args, "-d" => "int" if $options{debug};
+	push @qemu_args, "-S" => "-s" if $options{gdb};
 	
 	if ($options{usartd}) {
 		if (isWin()) {
@@ -96,7 +105,8 @@ sub main {
 	
 	print "---------------------------------------------------\n";
 	for my $k (sort keys %QEMU_ENV) {
-		print "set $k=".$QEMU_ENV{$k}."\n";
+		print "set $k=".$QEMU_ENV{$k}."\n" if isWin();
+		print "export $k=".$QEMU_ENV{$k}."\n" if !isWin();
 		$ENV{$k} = $QEMU_ENV{$k};
 	}
 	
@@ -135,6 +145,7 @@ sub help {
 			[" --gdb",				"Enable GDB server."],
 			[" --trace-io=-all",	"CPU IO tracing."],
 			[" --trace-log=-all",	"CPU emulation logs."],
+			[" --run-on-gdb",		"Run QEMU on GDB for debugging."]
 		]
 	];
 	
