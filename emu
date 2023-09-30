@@ -85,7 +85,7 @@ sub main {
 		print "Write mode enabled! Your fullflash will be rewritten!\n";
 		push @qemu_args, "-drive" => "if=pflash,format=raw,file=".$options{fullflash};
 	} else {
-		push @qemu_args, "-drive" => "if=pflash,readonly,format=raw,file=".$options{fullflash};
+		push @qemu_args, "-drive" => "if=pflash,readonly=on,format=raw,file=".$options{fullflash};
 	}
 	
 	push @qemu_args, "-d" => "int" if $options{debug};
