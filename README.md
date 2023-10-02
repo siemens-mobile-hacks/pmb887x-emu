@@ -9,6 +9,7 @@ Current state is very poor alpha with many bugs and most of unimplemented hardwa
 |--------------------------|---------|--------------|
 | BenQ-Siemens EL71 / C1F0 | pmb8876 | siemens-el71 |
 | BenQ-Siemens C81         | pmb8876 | siemens-c81  |
+| Siemens S75              | pmb8876 | siemens-s75  |
 
 # Prebuilded releases
 For Windows you can download in releases: https://github.com/Azq2/pmb887x-emu/releases
@@ -164,7 +165,6 @@ Not working and planned in far future:
 
 Planned SGold2 boards:
 - [ ] BenQ-Siemens SL75
-- [ ] BenQ-Siemens S75
 - [ ] BenQ-Siemens M81
 - [ ] BenQ-Siemens S68
 - [ ] BenQ-Siemens E71 / M72
