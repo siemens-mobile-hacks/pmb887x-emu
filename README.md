@@ -5,11 +5,15 @@ This is hardware emulator for any boards with pmb8875/pmb8876 CPU. Mostly legend
 Current state is very poor alpha with many bugs and most of unimplemented hardware. :)
 
 # Supported hardware
-| Phone                    | CPU     |   ID         |
-|--------------------------|---------|--------------|
-| BenQ-Siemens EL71 / C1F0 | pmb8876 | siemens-el71 |
-| BenQ-Siemens C81         | pmb8876 | siemens-c81  |
-| Siemens S75              | pmb8876 | siemens-s75  |
+| Phone                    | CPU     | Emulator       |
+|--------------------------|---------|----------------|
+| BenQ-Siemens EL71        | pmb8876 | siemens-el71   |
+| BenQ-Siemens CF130       | pmb8876 | siemens-el71   |
+| BenQ-Siemens E71         | pmb8876 | siemens-e71    |
+| BenQ-Siemens M72         | pmb8876 | siemens-e71    |
+| BenQ-Siemens C81         | pmb8876 | siemens-c81    |
+| BenQ-Siemens M81         | pmb8876 | siemens-m81    |
+| Siemens S75              | pmb8876 | siemens-s75    |
 
 # Prebuilded releases
 For Windows you can download in releases: https://github.com/Azq2/pmb887x-emu/releases
@@ -165,6 +169,4 @@ Not working and planned in far future:
 
 Planned SGold2 boards:
 - [ ] BenQ-Siemens SL75
-- [ ] BenQ-Siemens M81
 - [ ] BenQ-Siemens S68
-- [ ] BenQ-Siemens E71 / M72
