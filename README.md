@@ -10,7 +10,6 @@ Current state is very poor alpha with many bugs and most of unimplemented hardwa
 | BenQ-Siemens EL71        | pmb8876 | siemens-el71   |
 | BenQ-Siemens CF130       | pmb8876 | siemens-el71   |
 | BenQ-Siemens E71         | pmb8876 | siemens-e71    |
-| BenQ-Siemens M72         | pmb8876 | siemens-e71    |
 | BenQ-Siemens C81         | pmb8876 | siemens-c81    |
 | BenQ-Siemens M81         | pmb8876 | siemens-m81    |
 | Siemens S75              | pmb8876 | siemens-s75    |
