@@ -30,6 +30,7 @@ cd "$BUILD_DIR"
 		--enable-gettext \
 		--enable-gio \
 		--enable-gtk \
+		--enable-pixman \
 		--enable-gtk-clipboard \
 		--enable-iconv \
 		--enable-libpmem \
@@ -41,8 +42,6 @@ cd "$BUILD_DIR"
 		--enable-opengl \
 		--enable-pa \
 		--enable-sdl \
-		--enable-spice \
-		--enable-spice-protocol \
 		--enable-tcg \
 		--enable-virglrenderer \
 		--enable-vnc \
