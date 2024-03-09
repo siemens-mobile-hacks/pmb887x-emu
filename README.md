@@ -37,10 +37,15 @@ git submodule update --init
 ./tools/build.sh
 ```
 
-Windows (building on Ubuntu 23.04)
+Windows (building on Ubuntu 22.04 / 23.04)
 ```bash
 # Install dependencies
 sudo apt-get -y install meson mingw-w64 mingw-w64-tools mingw-w64-i686-dev mingw-w64-x86-64-dev mingw-w64-common
+
+# ONLY FOR 22.04 LTS
+wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-i686-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-i686-dev.deb
+wget http://mirrors.kernel.org/ubuntu/pool/universe/m/mingw-w64/mingw-w64-x86-64-dev_10.0.0-3_all.deb -O /tmp/mingw-w64-x86-64-dev.deb
+sudo dpkg -i /tmp/mingw-w64-i686-dev.deb /tmp/mingw-w64-x86-64-dev.deb
 
 # Clone from GIT
 git clone https://github.com/Azq2/pmb887x-emu
