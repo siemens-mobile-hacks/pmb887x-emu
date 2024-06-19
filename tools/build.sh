@@ -33,7 +33,6 @@ cd "$BUILD_DIR"
 		--enable-pixman \
 		--enable-gtk-clipboard \
 		--enable-iconv \
-		--enable-libpmem \
 		--enable-libudev \
 		--enable-linux-aio \
 		--enable-linux-io-uring \
