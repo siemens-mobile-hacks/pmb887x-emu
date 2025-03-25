@@ -16,6 +16,7 @@ cd "$BUILD_DIR"
 # --enable-pipewire
 # --enable-vte
 # --enable-libdw
+# --enable-libpmem
 
 [[ -e "$BUILD_DIR/.configured" ]] || {
 	"$SRC/qemu/configure" \
@@ -33,7 +34,6 @@ cd "$BUILD_DIR"
 		--enable-pixman \
 		--enable-gtk-clipboard \
 		--enable-iconv \
-		--enable-libpmem \
 		--enable-libudev \
 		--enable-linux-aio \
 		--enable-linux-io-uring \
