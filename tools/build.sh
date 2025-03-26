@@ -24,9 +24,6 @@ cd "$BUILD_DIR"
 		--disable-werror \
 		--disable-install-blobs \
 		--without-default-features \
-		--enable-avx2 \
-		--enable-avx512bw \
-		--enable-avx512f \
 		--enable-dbus-display \
 		--enable-gettext \
 		--enable-gio \

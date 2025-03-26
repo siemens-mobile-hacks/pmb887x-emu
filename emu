@@ -27,7 +27,9 @@ my %options = (
 	gdb				=> 0,
 	usartd			=> 0,
 	debug			=> 0,
-	run_on_gdb		=> 0
+	run_on_gdb		=> 0,
+	serial			=> undef,
+	monitor			=> "none",
 );
 
 main();
@@ -43,6 +45,8 @@ sub main {
 		"siemens-esn=s"		=> \$options{siemens_esn},
 		"siemens-imei=s"	=> \$options{siemens_imei},
 		"gdb"				=> \$options{gdb},
+		"serial=s"			=> \$options{serial},
+		"monitor=s"			=> \$options{monitor},
 		"usartd"			=> \$options{usartd},
 		"debug"				=> \$options{debug},
 		"run-on-gdb"		=> \$options{run_on_gdb},
@@ -78,7 +82,7 @@ sub main {
 		$qemu,
 		"-icount"	=> "precise-clocks=on",
 		"-machine"	=> "pmb887x",
-		"-monitor"	=> "none",
+		"-monitor"	=> $options{monitor},
 	);
 	
 	if ($options{rw}) {
@@ -91,14 +95,18 @@ sub main {
 	push @qemu_args, "-d" => "int,guest_errors" if $options{debug};
 	push @qemu_args, "-S" => "-s" if $options{gdb};
 	
-	if ($options{usartd}) {
-		if (isWin()) {
-			push @qemu_args, "-serial" => "tcp:127.0.0.1:11111";
-		} else {
-			push @qemu_args, "-serial" => "unix:/tmp/siemens.sock";
-		}
+	if ($options{serial}) {
+		push @qemu_args, "-serial" => $options{serial};
 	} else {
-		push @qemu_args, "-serial" => "stdio" if isWin();
+		if ($options{usartd}) {
+			if (isWin()) {
+				push @qemu_args, "-serial" => "tcp:127.0.0.1:11111";
+			} else {
+				push @qemu_args, "-serial" => "unix:/tmp/siemens.sock";
+			}
+		} else {
+			push @qemu_args, "-serial" => "stdio" if isWin();
+		}
 	}
 	
 	my $qemu_cmd = join(" ", map { escapeshellarg($_) } @qemu_args);
@@ -143,6 +151,9 @@ sub help {
 		"Debug:",
 		[
 			[" --gdb",				"Enable GDB server."],
+			[" --usartd",			"UNIX socket /tmp/siemens.sock for usart."],
+			[" --serial",			"QEMU serial device."],
+			[" --monitor",			"QEMU monitor."],
 			[" --trace-io=-all",	"CPU IO tracing."],
 			[" --trace-log=-all",	"CPU emulation logs."],
 			[" --run-on-gdb",		"Run QEMU on GDB for debugging."]
