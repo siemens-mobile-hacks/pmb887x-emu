@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 
 	std::vector<std::string> qemuArgs;
 	std::unordered_map<std::string, std::string> qemuEnv;
-	auto qemuBin = normalizePath(getQemuBin()).string();
+	auto qemuBin = getQemuBin();
 
 	auto device = program.get<std::string>("--device");
 	auto siemensEsn = program.get<std::string>("--siemens-esn");
@@ -120,7 +120,7 @@ int main(int argc, char *argv[]) {
 	auto flashOtp0 = program.get<std::string>("--flash-otp0");
 	auto flashOtp1 = program.get<std::string>("--flash-otp1");
 
-	qemuEnv["PMB887X_BOARD"] = normalizePath(getBoardConfig(device)).string();
+	qemuEnv["PMB887X_BOARD"] = getBoardConfig(device);
 
 	if (program.get<bool>("--qemu-stop-on-exception"))
 		qemuEnv["QEMU_ARM_STOP_ON_EXCP"] = "1";
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
 	std::cout << command << "\n";
 	std::cout << "---------------------------------------------------\n";
 
-	return 0;
+	return system(command.c_str());
 }
 
 static std::string getBoardConfig(const std::string &device) {
@@ -242,7 +242,6 @@ static std::string getBoardConfig(const std::string &device) {
 
 	for (const auto &path : variants) {
 		std::error_code ec;
-		std::cout << path.string() << "\n";
 		if (std::filesystem::exists(path, ec) && !ec) {
 			return std::filesystem::canonical(path).string();
 		}
@@ -259,22 +258,22 @@ static std::string getQemuBin() {
 	std::vector<std::filesystem::path> variants;
 	if (isOSX()) {
 		variants = {
-			"/opt/homebrew/share/pmb887x-emu/qemu-system-arm",
-			"/usr/local/share/pmb887x-emu/qemu-system-arm",
-			exeDir / "qemu-build/qemu-system-arm",
-			exeDir / "qemu-system-arm-pmb887x",
+			"/opt/homebrew/share/pmb887x-emu/qemu-system-arm", // homebrew (arm)
+			"/usr/local/share/pmb887x-emu/qemu-system-arm", // homebrew (intel)
+			exeDir / "qemu-build/qemu-system-arm", // build
+			exeDir / "qemu/qemu-system-arm", // portable version
 		};
 	} else if (isWindows()) {
 		variants = {
-			exeDir / "qemu-build/qemu-system-arm.exe",
-			exeDir / "qemu-system-arm-pmb887x.exe",
+			exeDir / "qemu-build/qemu-system-arm.exe", // build
+			exeDir / "qemu/qemu-system-arm.exe", // portable version
 		};
 	} else {
 		variants = {
-			"/usr/share/pmb887x-emu/qemu-system-arm",
-			"/usr/local/share/pmb887x-emu/qemu-system-arm",
-			exeDir / "qemu-build/qemu-system-arm",
-			exeDir / "qemu-system-arm-pmb887x",
+			"/usr/share/pmb887x-emu/qemu-system-arm", // installed
+			"/usr/local/share/pmb887x-emu/qemu-system-arm", // installed
+			exeDir / "qemu-build/qemu-system-arm", // build
+			exeDir / "qemu/qemu-system-arm", // portable version
 		};
 	}
 

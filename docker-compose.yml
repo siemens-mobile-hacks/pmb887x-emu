@@ -15,8 +15,7 @@ services:
     working_dir: /app
     volumes:
       - .:/app:Z
-    command: >
-      bash -lc '
+    command: bash -c "
         mingw64-cmake -S . -B build-win64 &&
-        cmake --build build-win64 -j"$(nproc)"
-      '
+        cmake --build build-win64 -j$(nproc)
+      "
