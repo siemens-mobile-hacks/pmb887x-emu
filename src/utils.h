@@ -29,6 +29,5 @@ static inline bool isUNIX() {
 void setEnv(const std::string &name, const std::string &value);
 std::string convertESNtoOTP(const std::string &esn);
 std::string convertIMEItoOTP(const std::string &imei);
-std::string escapeShellArg(const std::string &arg);
-std::string joinCommandArguments(const std::vector<std::string> &args);
-std::filesystem::path normalizePath(const std::filesystem::path &path);
+int exec(const std::vector<std::string> &argv);
+std::string strJoin(const std::vector<std::string> &vec, const std::string &delimiter = "");

@@ -204,17 +204,15 @@ int main(int argc, char *argv[]) {
 		setEnv("GTK3_MODULES", "");
 	}
 
-	auto command = joinCommandArguments(qemuArgs);
-
 	std::cout << "---------------------------------------------------\n";
 	for (auto &it: qemuEnv) {
 		std::cout << (isWindows() ? "set " : "export ") << it.first << "=" << it.second << "\n";
 		setEnv(it.first, it.second);
 	}
-	std::cout << command << "\n";
+	std::cout << strJoin(qemuArgs, " ") << "\n";
 	std::cout << "---------------------------------------------------\n";
 
-	return system(command.c_str());
+	return exec(qemuArgs);
 }
 
 static std::string getBoardConfig(const std::string &device) {

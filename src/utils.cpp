@@ -18,6 +18,13 @@
     #include <sys/sysctl.h>
 #endif
 
+#ifdef _WIN32
+#include <process.h>
+#else
+#include <spawn.h>
+#include <sys/wait.h>
+#endif
+
 std::filesystem::path getExecutableDir() {
 #ifdef _WIN32
     char buffer[MAX_PATH];
@@ -59,103 +66,48 @@ void setEnv(const std::string &name, const std::string &value) {
 #endif
 }
 
-static bool isInsideCwd(const std::filesystem::path &path) {
-	auto cwd = std::filesystem::current_path();
+int exec(const std::vector<std::string> &argv) {
+#ifdef _WIN32
+	std::vector<char *> args;
+	for (const auto &arg: argv)
+		args.push_back(const_cast<char *>(arg.c_str()));
+	args.push_back(nullptr);
 
-    auto normalizedPath = std::filesystem::canonical(path);
-    auto normalizedCwd = std::filesystem::canonical(cwd);
+    intptr_t result = _spawnvp(_P_WAIT, args[0], args.data());
+    if (result == -1)
+        throw std::runtime_error("_spawnvp failed");
+    return static_cast<int>(result);
+#else
+	std::vector<char *> args;
+	for (const auto &arg: argv)
+		args.push_back(const_cast<char *>(arg.c_str()));
+	args.push_back(nullptr);
 
-    auto pathStr = normalizedPath.string();
-    auto cwdStr = normalizedCwd.string();
+	pid_t pid;
+	int result = posix_spawnp(&pid, args[0], nullptr, nullptr, args.data(), environ);
+	if (result != 0)
+		throw std::runtime_error("posix_spawn failed");
 
-    if (pathStr.length() < cwdStr.length())
-        return false;
+	int status;
+	waitpid(pid, &status, 0);
 
-    return pathStr.compare(0, cwdStr.length(), cwdStr) == 0 &&
-           (pathStr.length() == cwdStr.length() ||
-            pathStr[cwdStr.length()] == std::filesystem::path::preferred_separator);
+	if (WIFEXITED(status))
+		return WEXITSTATUS(status);
+	return -1;
+#endif
 }
 
- std::filesystem::path normalizePath(const std::filesystem::path &path) {
-	auto normalized = std::filesystem::canonical(path);
-	auto cwd = std::filesystem::current_path();
-	if (isInsideCwd(normalized))
-		return std::filesystem::relative(normalized, cwd);
-	return normalized;
-}
+std::string strJoin(const std::vector<std::string> &vec, const std::string &delimiter) {
+	if (vec.empty())
+		return "";
 
-static bool isSafeForUnixAndWin(const std::string &str) {
-	if (str.empty())
-		return false;
-
-	return std::all_of(str.begin(), str.end(), [](char c) {
-		return (
-			std::isalnum(c) ||
-			c == ',' || c == '.' || c == '/' ||
-			c == '=' || c == '_' || c == '-'
-		);
-	});
-}
-
-std::string escapeShellArg(const std::string &arg) {
-	if (isSafeForUnixAndWin(arg))
-		return arg;
-
-	if (isWindows()) {
-		std::string result;
-		result.reserve(arg.length() + 10);
-		result += '"';
-
-		size_t backslashes = 0;
-		for (char c: arg) {
-			if (c == '\\') {
-				backslashes++;
-			} else if (c == '"') {
-				result.append(backslashes * 2 + 1, '\\');
-				result += '"';
-				backslashes = 0;
-			} else {
-				result.append(backslashes, '\\');
-				result += c;
-				backslashes = 0;
-			}
-		}
-
-		result.append(backslashes * 2, '\\');
-		result += '"';
-
-		return result;
-	} else {
-		std::string result;
-		result.reserve(arg.length() + 10);
-		result += '\'';
-
-		for (char c :arg) {
-			if (c == '\'') {
-				result += "'\\''";
-			} else {
-				result += c;
-			}
-		}
-
-		result += '\'';
-		return result;
+	std::string result = vec[0];
+	for (size_t i = 1; i < vec.size(); ++i) {
+		result += delimiter;
+		result += vec[i];
 	}
-}
 
-std::string joinCommandArguments(const std::vector<std::string> &args) {
-    std::vector<std::string> escaped;
-    escaped.reserve(args.size());
-    std::transform(args.begin(), args.end(), std::back_inserter(escaped), [](const std::string &arg) {
-		return escapeShellArg(arg);
-	});
-
-    return std::accumulate(
-        std::next(escaped.begin()), escaped.end(), escaped[0],
-        [](const std::string &a, const std::string &b) {
-            return a + ' ' + b;
-        }
-    );
+	return result;
 }
 
 std::string convertIMEItoOTP(const std::string &imei) {
