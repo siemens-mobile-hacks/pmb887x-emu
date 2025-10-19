@@ -1,0 +1,22 @@
+x-uidgid: &uidgid
+  UID: "${UID:?UID variable must be set in .bash_profile as `export UID=$$(id)`}"
+  GID: "${GID:?GID variable must be set in .bash_profile as `export GID=$$(id -g)`}"
+
+services:
+  pmb887x-emu-win64:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.win64
+      args:
+        UID: $UID
+        GID: $GID
+        USER: builder
+    user: $UID:$GID
+    working_dir: /app
+    volumes:
+      - .:/app:Z
+    command: >
+      bash -lc '
+        mingw64-cmake -S . -B build-win64 &&
+        cmake --build build-win64 -j"$(nproc)"
+      '
