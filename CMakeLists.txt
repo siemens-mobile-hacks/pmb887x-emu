@@ -115,8 +115,6 @@ else()
 		--enable-sdl
 		--enable-tcg
 		--enable-xkbcommon
-		--enable-lto
-		--enable-strip
 		--enable-avx2
 		--enable-avx512bw
 	)

@@ -26,7 +26,7 @@ int main(int argc, char *argv[]) {
 		.nargs(1);
 
 	program.add_argument("--rw")
-		.help("Allow writing to fullflash.bin. Dangerous!")
+		.help("Allow writing to fullflash.bin (dangerous!)")
 		.default_value(false)
 		.implicit_value(true);
 
@@ -59,14 +59,14 @@ int main(int argc, char *argv[]) {
 		.nargs(1);
 
 	program.add_argument("--usartd")
-		.help("Connect to usartd.pl to QEMU")
+		.help("Connect to usartd.pl in QEMU")
 		.default_value(false)
 		.implicit_value(true);
 
 	program.add_group("Trace options");
 
 	program.add_argument("--gdb")
-		.help("Run firmware on GDB")
+		.help("Run firmware with GDB")
 		.default_value(false)
 		.implicit_value(true);
 
@@ -75,11 +75,11 @@ int main(int argc, char *argv[]) {
 		.nargs(1);
 
 	program.add_argument("--trace-io")
-		.help("Only CPU IO tracing")
+		.help("CPU IO tracing only")
 		.nargs(1);
 
 	program.add_argument("--trace-log")
-		.help("Only CPU emulation logs")
+		.help("CPU emulation logs only")
 		.nargs(1);
 
 	program.add_group("QEMU options");
@@ -153,7 +153,7 @@ int main(int argc, char *argv[]) {
 	qemuArgs.emplace_back("pmb887x");
 
 	if (program.get<bool>("--rw")) {
-		std::cout << "Write mode enabled! Your fullflash will be rewritten!\n";
+		std::cout << "Write mode enabled! Your fullflash will be modified!\n";
 		qemuArgs.emplace_back("-drive");
 		qemuArgs.emplace_back("if=pflash,format=raw,file=" + program.get<std::string>("--fullflash"));
 	} else {
@@ -245,7 +245,7 @@ static std::string getBoardConfig(const std::string &device) {
 		}
 	}
 
-	throw std::runtime_error("QEMU config not found! (" + device + ")");
+	throw std::runtime_error("QEMU configuration file not found: " + device);
 
 	return "";
 }
