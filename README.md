@@ -145,7 +145,7 @@ Implemented hardware:
 - [x] STM
 - [x] PLL
 - [x] DIF
-- [x] NVIC
+- [x] VIC
 - [x] PCL (partial)
 - [x] SCU (partial)
 - [x] RTC (very partial)

@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
 		.default_value(false)
 		.implicit_value(true);
 
-	program.add_argument("--qemu-stop-on-exception")
+	program.add_argument("-E", "--qemu-stop-on-exception")
 		.help("Stop QEMU on ARM exception")
 		.default_value(false)
 		.implicit_value(true);
