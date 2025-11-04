@@ -47,8 +47,6 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 		--enable-tcg
 		--enable-lto
 		--enable-strip
-		--enable-avx2
-		--enable-avx512bw
 	)
 
 	set(DIST_DIR "${CMAKE_BINARY_DIR}/dist")
@@ -115,8 +113,6 @@ else()
 		--enable-sdl
 		--enable-tcg
 		--enable-xkbcommon
-		--enable-avx2
-		--enable-avx512bw
 	)
 
 	ExternalProject_Add(qemu
