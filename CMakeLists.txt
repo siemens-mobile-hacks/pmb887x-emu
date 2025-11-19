@@ -32,9 +32,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	SET(QEMU_CONFIGURE_OPTIONS
 		--prefix=${CMAKE_BINARY_DIR}/dist/qemu
 		--cross-prefix=x86_64-w64-mingw32-
+		--enable-werror
 		--disable-user
 		--target-list=arm-softmmu
-		--disable-werror
 		--disable-docs
 		--disable-install-blobs
 		--without-default-features
