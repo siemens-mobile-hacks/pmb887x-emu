@@ -125,6 +125,7 @@ else()
 	install(
 		DIRECTORY ${CMAKE_BINARY_DIR}/qemu-install/
 		DESTINATION share/pmb887x-emu/qemu
+		USE_SOURCE_PERMISSIONS
 	)
 
 	ExternalProject_Add(qemu
