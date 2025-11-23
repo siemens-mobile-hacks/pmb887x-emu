@@ -216,10 +216,10 @@ int main(int argc, char *argv[]) {
 }
 
 static std::string getBoardConfig(const std::string &device) {
-	if (device.ends_with(".cfg") || device.ends_with(".CFG"))
+	if (device.ends_with(".toml") || device.ends_with(".TOML"))
 		return device;
 
-	auto file = device + ".cfg";
+	auto file = device + ".toml";
 	std::filesystem::path exeDir = getExecutableDir();
 
 	std::vector<std::filesystem::path> variants;
