@@ -2,73 +2,60 @@
 This is a hardware emulator for any boards with pmb8875/pmb8876 CPU, mostly legendary Siemens phones.
 The current state is very early alpha with many bugs and most hardware unimplemented. :)
 
-# Supported hardware
-| Phone                    | CPU     | Emulator       |
-|--------------------------|---------|----------------|
-| BenQ-Siemens EL71        | pmb8876 | siemens-el71   |
-| BenQ-Siemens CF130       | pmb8876 | siemens-el71   |
-| BenQ-Siemens E71         | pmb8876 | siemens-e71    |
-| BenQ-Siemens C81         | pmb8876 | siemens-c81    |
-| BenQ-Siemens M81         | pmb8876 | siemens-m81    |
-| Siemens S75              | pmb8876 | siemens-s75    |
-| Siemens CX75             | pmb8875 | siemens-cx75   |
+# Installation
+- Windows: download **pmb887x-emu-windows.zip** from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
+- ArchLinux: `yay -S pmb887x-emu`
+- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu`
+- Build from sources:
+  ```bash
+  sudo apt-get build-dep qemu # Ubuntu or Debian
 
-# Prebuilt releases
-For Windows, you can download **pmb887x-emu-windows.zip** from releases: https://github.com/Azq2/pmb887x-emu/releases
+  git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/siemens-mobile-hacks/pmb887x-emu
+  cd pmb887x-emu
 
-For MacOS/Linux, you must build it yourself. The Unix way! :)
+  ./tools/build.sh
+  sudo cmake --install build
+  ```
 
-# Building
-**Linux**
-```bash
-# Install dependencies (Ubuntu or Debian)
-sudo apt-get build-dep qemu
+# Usage
+```
+Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--serial VAR] [--usartd] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
-# Clone from GIT
-git clone https://github.com/Azq2/pmb887x-emu --depth 1
-cd pmb887x-emu
-git submodule update --init
+Generic emulator for PMB887X-based mobile phones.
 
-# Configure and build
-./tools/build.sh
+Optional arguments:
+  -h, --help                    shows help message and exits 
+  -v, --version                 prints version information and exits 
 
-# Install
-cmake --install build
+Main options (detailed usage):
+  -d, --device                  Device name or path to custom device.cfg file [required]
+  -f, --fullflash               Path to the fullflash.bin file [required]
+  --rw                          Allow writing to fullflash.bin (dangerous!) 
+
+OTP options (detailed usage):
+  --flash-otp0                  Raw NOR flash otp0 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-otp1                  Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --siemens-esn                 Siemens flash ESN (HEX) [nargs=0..1] [default: ""]
+  --siemens-imei                Siemens flash IMEI (number) [nargs=0..1] [default: ""]
+
+Serial options (detailed usage):
+  --serial                      Connect host serial port to QEMU 
+  --usartd                      Connect to usartd.pl in QEMU 
+
+Trace options (detailed usage):
+  --gdb                         Run firmware with GDB 
+  -D, --trace                   CPU IO + CPU emulation log 
+  --trace-io                    CPU IO tracing only 
+  --trace-log                   CPU emulation logs only 
+
+QEMU options (detailed usage):
+  --qemu-monitor                QEMU monitor 
+  --qemu-run-with-gdb           Run emulator using GDB (debug) 
+  -E, --qemu-stop-on-exception  Stop QEMU on ARM exception 
+  --qemu-debug                  QEMU debug options 
 ```
 
-**Windows (Docker)**
-```bash
-# Clone from GIT
-git clone https://github.com/Azq2/pmb887x-emu --depth 1
-cd pmb887x-emu
-git submodule update --init
-
-# Configure and build
-./tools/build_win.sh
-```
-
-**MacOS**
-```bash
-# Install dependencies
-brew install llvm libffi gettext glib pkg-config pixman ninja meson coreutils perl
-
-# Clone from GIT
-git clone https://github.com/Azq2/pmb887x-emu --depth 1
-cd pmb887x-emu
-git submodule update --init
-
-# Configure and build
-./tools/build_osx.sh
-
-# Install
-cmake --install build
-```
-
-# How to use
-You can use a simple frontend called `pmb887x-emu`. It provides a simpler interface for QEMU.
-Just run `pmb887x-emu --help` for all options. But not all options work yet! :) 
-
-Some useful examples:
+**Some useful examples:**
 
 1. Running fullflash with default emulator OTP
 ```
@@ -120,3 +107,23 @@ You can press keys on the phone keyboard using your computer keyboard.
 
 The full key mapping is defined in [board.c](https://github.com/Azq2/qemu-pmb887x/blob/7c83c045a11cd110d220ec39a6cad3dbafe86e6c/hw/arm/pmb887x/boards.c#L19-L67).
 rovements throughout
+
+# Supported hardware
+**Siemens SG2 platform**
+| Phone              | Emulator     |
+|--------------------|--------------|
+| BenQ-Siemens E71   | siemens-e71  |
+| BenQ-Siemens EL71  | siemens-el71 |
+| BenQ-Siemens CF130 | siemens-el71 |
+| BenQ-Siemens M72   | siemens-m72  |
+| BenQ-Siemens CL61  | siemens-cl61 |
+| BenQ-Siemens C81   | siemens-c81  |
+| BenQ-Siemens M81   | siemens-m81  |
+| BenQ-Siemens S68   | siemens-s68  |
+| Siemens S75        | siemens-s75  |
+| Siemens SL75       | siemens-sl75 |
+
+**Siemens SGL platform**
+| Phone              | Emulator     |
+|--------------------|--------------|
+| Siemens CX75       | siemens-cx75 |
