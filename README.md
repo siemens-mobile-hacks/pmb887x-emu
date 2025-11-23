@@ -14,31 +14,19 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 | Siemens CX75             | pmb8875 | siemens-cx75   |
 
 # Installation
-**Windows**
+- Windows: download **pmb887x-emu-windows.zip** from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
+- ArchLinux: `yay -S pmb887x-emu`
+- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu`
+- Build from sources:
+  ```bash
+  sudo apt-get build-dep qemu # Ubuntu or Debian
 
-You can download **pmb887x-emu-windows.zip** from releases: https://github.com/Azq2/pmb887x-emu/releases
+  git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/siemens-mobile-hacks/pmb887x-emu
+  cd pmb887x-emu
 
-**OSX**
-```
-brew install siemens-mobile-hacks/tap/pmb887x-emu
-```
-
-**Arch Linux**
-```
-yay -S pmb887x-emu
-```
-
-**Ubuntu / Debian**
-```
-sudo apt-get build-dep qemu
-
-git clone https://github.com/Azq2/pmb887x-emu --depth 1
-cd pmb887x-emu
-git submodule update --init
-
-./tools/build.sh
-sudo cmake --install build
-```
+  ./tools/build.sh
+  sudo cmake --install build
+  ```
 
 # How to use
 You can use a simple frontend called `pmb887x-emu`. It provides a simpler interface for QEMU.
