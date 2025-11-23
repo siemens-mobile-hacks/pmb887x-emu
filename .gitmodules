@@ -4,3 +4,6 @@
 [submodule "bsp"]
 	path = bsp
 	url = https://github.com/Azq2/pmb887x-dev
+[submodule "third_party/argparse"]
+	path = third_party/argparse
+	url = https://github.com/p-ranav/argparse

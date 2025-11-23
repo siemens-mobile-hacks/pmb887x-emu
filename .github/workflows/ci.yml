@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with: 
+          submodules: true
+
+      - name: Building emulator
+        run: |
+          tools/build_win.sh
+          cd build-win64/dist && zip -r /tmp/pmb887x-emu-windows.zip .
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          files: /tmp/pmb887x-emu-windows.zip
+
+      - name: Check out homebrew tap
+        uses: actions/checkout@v3
+        with:
+          repository: siemens-mobile-hacks/homebrew-tap
+          path: ./tap
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - name: Generate formula
+        run: |
+          sed -i "s/RELEASE_TAG_NAME/$GITHUB_REF_NAME/g" pmb887x-emu.rb
+          sed -i "s/RELEASE_TAG_HASH/$GITHUB_SHA/g" pmb887x-emu.rb
+          cat pmb887x-emu.rb
+
+          cd tap
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git pull
+          cp ../pmb887x-emu.rb Formula/pmb887x-emu.rb
+          git add Formula/pmb887x-emu.rb
+          git commit -m "pmb887x-emu: $GITHUB_REF_NAME"
+          git push --set-upstream origin main
+
+  macos:
+    if: ${{ false }}
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with: 
+          submodules: true
+
+      - name: Installing qemu dependencies
+        run: |
+          brew install llvm libffi gettext glib pkg-config pixman ninja meson coreutils
+
+      - name: Building emulator
+        run: |
+          tools/build_osx.sh
+          tools/make_dist_osx.sh
+
+      - uses: softprops/action-gh-release@v1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: true
+          files: /tmp/pmb887x-emu-osx-arm.tar.gz
+      
