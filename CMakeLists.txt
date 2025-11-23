@@ -10,7 +10,8 @@ include(GNUInstallDirs)
 add_subdirectory(third_party/argparse)
 
 add_executable(emu src/main.cpp src/utils.cpp)
-install(TARGETS emu RENAME pmb887x-emu)
+set_target_properties(emu PROPERTIES OUTPUT_NAME "pmb887x-emu")
+install(TARGETS emu RUNTIME DESTINATION bin)
 
 if (BUILD_STATIC)
 	target_link_options(emu PUBLIC -static -static-libgcc -static-libstdc++)
