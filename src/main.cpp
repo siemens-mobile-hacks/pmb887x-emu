@@ -256,10 +256,10 @@ static std::string getQemuBin() {
 	std::vector<std::filesystem::path> variants;
 	if (isOSX()) {
 		variants = {
-			"/opt/homebrew/share/pmb887x-emu/qemu-system-arm", // homebrew (arm)
-			"/usr/local/share/pmb887x-emu/qemu-system-arm", // homebrew (intel)
+			"/opt/homebrew/share/pmb887x-emu/qemu/bin/qemu-system-arm", // homebrew (arm)
+			"/usr/local/share/pmb887x-emu/qemu/bin/qemu-system-arm", // homebrew (intel)
 			exeDir / "qemu-build/qemu-system-arm", // build
-			exeDir / "qemu/qemu-system-arm", // portable version
+			exeDir / "qemu/bin/qemu-system-arm", // portable version
 		};
 	} else if (isWindows()) {
 		variants = {
@@ -268,10 +268,10 @@ static std::string getQemuBin() {
 		};
 	} else {
 		variants = {
-			"/usr/share/pmb887x-emu/qemu-system-arm", // installed
-			"/usr/local/share/pmb887x-emu/qemu-system-arm", // installed
+			"/usr/share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
+			"/usr/local/share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
 			exeDir / "qemu-build/qemu-system-arm", // build
-			exeDir / "qemu/qemu-system-arm", // portable version
+			exeDir / "qemu/bin/qemu-system-arm", // portable version
 		};
 	}
 

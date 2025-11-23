@@ -116,6 +116,17 @@ else()
 		--enable-xkbcommon
 	)
 
+	install(
+		DIRECTORY ${CMAKE_SOURCE_DIR}/bsp/lib/data/board/
+		DESTINATION share/pmb887x-emu/boards
+		FILES_MATCHING PATTERN "*.toml"
+	)
+
+	install(
+		DIRECTORY ${CMAKE_BINARY_DIR}/qemu-install/
+		DESTINATION share/pmb887x-emu
+	)
+
 	ExternalProject_Add(qemu
 		PREFIX ${CMAKE_BINARY_DIR}/qemu-prefix
 		SOURCE_DIR ${CMAKE_SOURCE_DIR}/qemu
@@ -124,7 +135,7 @@ else()
 
 		CONFIGURE_COMMAND ${CMAKE_SOURCE_DIR}/qemu/configure ${QEMU_CONFIGURE_OPTIONS}
 		BUILD_COMMAND $(MAKE)
-		INSTALL_COMMAND ""
+		INSTALL_COMMAND $(MAKE) install > /dev/null
 
 		BUILD_ALWAYS TRUE
 	)
