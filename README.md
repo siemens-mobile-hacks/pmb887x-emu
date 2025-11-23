@@ -13,55 +13,31 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 | Siemens S75              | pmb8876 | siemens-s75    |
 | Siemens CX75             | pmb8875 | siemens-cx75   |
 
-# Prebuilt releases
-For Windows, you can download **pmb887x-emu-windows.zip** from releases: https://github.com/Azq2/pmb887x-emu/releases
+# Installation
+**Windows**
 
-For MacOS/Linux, you must build it yourself. The Unix way! :)
+You can download **pmb887x-emu-windows.zip** from releases: https://github.com/Azq2/pmb887x-emu/releases
 
-# Building
-**Linux**
-```bash
-# Install dependencies (Ubuntu or Debian)
+**OSX**
+```
+brew install siemens-mobile-hacks/tap/pmb887x-emu
+```
+
+**Arch Linux**
+```
+yay -S pmb887x-emu
+```
+
+**Ubuntu / Debian**
+```
 sudo apt-get build-dep qemu
 
-# Clone from GIT
 git clone https://github.com/Azq2/pmb887x-emu --depth 1
 cd pmb887x-emu
 git submodule update --init
 
-# Configure and build
 ./tools/build.sh
-
-# Install
-cmake --install build
-```
-
-**Windows (Docker)**
-```bash
-# Clone from GIT
-git clone https://github.com/Azq2/pmb887x-emu --depth 1
-cd pmb887x-emu
-git submodule update --init
-
-# Configure and build
-./tools/build_win.sh
-```
-
-**MacOS**
-```bash
-# Install dependencies
-brew install llvm libffi gettext glib pkg-config pixman ninja meson coreutils perl
-
-# Clone from GIT
-git clone https://github.com/Azq2/pmb887x-emu --depth 1
-cd pmb887x-emu
-git submodule update --init
-
-# Configure and build
-./tools/build_osx.sh
-
-# Install
-cmake --install build
+sudo cmake --install build
 ```
 
 # How to use
