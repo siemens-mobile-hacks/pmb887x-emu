@@ -57,7 +57,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
 	# Copy executables
 	add_custom_command(TARGET emu POST_BUILD
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_BINARY_DIR}/emu.exe" "${DIST_DIR}/pmb887x-emu.exe"
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${CMAKE_BINARY_DIR}/pmb887x-emu.exe" "${DIST_DIR}/pmb887x-emu.exe"
 		VERBATIM
 	)
 
@@ -71,7 +71,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	endforeach()
 
 	# Copy boards
-	file(GLOB SYSROOT_DLLS "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/*.cfg")
+	file(GLOB SYSROOT_DLLS "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/*.toml")
 	foreach(board_file IN LISTS SYSROOT_DLLS)
 		add_custom_command(TARGET emu POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards"
