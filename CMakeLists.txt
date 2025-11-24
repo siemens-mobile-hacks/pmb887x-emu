@@ -109,21 +109,35 @@ else()
 		--disable-install-blobs
 		--without-default-features
 		--enable-gettext
-		--enable-gio
-		--enable-gtk
-		--enable-pixman
 		--enable-iconv
-		--enable-libudev
-		--enable-linux-aio
-		--enable-linux-io-uring
+		--enable-pixman
 		--enable-malloc-trim
 		--enable-multiprocess
-		--enable-opengl
-		--enable-pa
-		--enable-sdl
 		--enable-tcg
-		--enable-xkbcommon
+		--enable-capstone
 	)
+
+	if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+		SET(QEMU_CONFIGURE_OPTIONS
+			${QEMU_CONFIGURE_OPTIONS}
+			--enable-cocoa
+		)
+	else()
+		SET(QEMU_CONFIGURE_OPTIONS
+			${QEMU_CONFIGURE_OPTIONS}
+			--enable-gtk
+			--enable-iconv
+			--enable-libudev
+			--enable-linux-aio
+			--enable-linux-io-uring
+			--enable-pa
+			--enable-xkbcommon
+		)
+	endif()
+
+	if (CMAKE_BUILD_TYPE STREQUAL "Release")
+		SET(QEMU_CONFIGURE_OPTIONS ${QEMU_CONFIGURE_OPTIONS} --enable-lto --enable-strip)
+	endif()
 
 	install(
 		DIRECTORY ${CMAKE_SOURCE_DIR}/bsp/lib/data/board/
@@ -150,3 +164,4 @@ else()
 		BUILD_ALWAYS TRUE
 	)
 endif()
+Darwin

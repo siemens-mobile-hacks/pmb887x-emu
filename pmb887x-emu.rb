@@ -12,16 +12,23 @@ class Pmb887xEmu < Formula
 		strategy :github_latest
 	end
 
-	depends_on "cmake" => :build
+	depends_on "libtool" => :build
 	depends_on "meson" => :build
 	depends_on "ninja" => :build
-	depends_on "pkg-config" => :build
-	depends_on "coreutils" => :build
-	depends_on "llvm"
-	depends_on "libffi"
-	depends_on "gettext"
+	depends_on "pkgconf" => :build
+	depends_on "python@3.14" => :build
+	depends_on "capstone"
 	depends_on "glib"
+	depends_on "jpeg-turbo"
+	depends_on "libpng"
+	depends_on "lzo"
 	depends_on "pixman"
+	depends_on "zstd"
+
+	uses_from_macos "bison" => :build
+	uses_from_macos "flex" => :build
+	uses_from_macos "bzip2"
+	uses_from_macos "zlib"
 
 	def install
 		system "cmake", "-S", ".", "-B", "build", *std_cmake_args
