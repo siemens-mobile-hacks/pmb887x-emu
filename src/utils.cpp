@@ -25,6 +25,10 @@
 #include <sys/wait.h>
 #endif
 
+#if defined(__APPLE__) || defined(__MACH__)
+extern char **environ;
+#endif
+
 std::filesystem::path getExecutableDir() {
 #ifdef _WIN32
     char buffer[MAX_PATH];
