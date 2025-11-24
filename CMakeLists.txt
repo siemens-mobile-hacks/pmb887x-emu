@@ -111,7 +111,6 @@ else()
 		--enable-gettext
 		--enable-iconv
 		--enable-pixman
-		--enable-malloc-trim
 		--enable-tcg
 		--enable-capstone
 	)
@@ -132,6 +131,7 @@ else()
 			--enable-pa
 			--enable-xkbcommon
 			--enable-multiprocess
+			--enable-malloc-trim
 		)
 	endif()
 
