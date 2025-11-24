@@ -4,13 +4,14 @@
 #include <iostream>
 #include <unordered_map>
 
+#include "config.h"
 #include "utils.h"
 
 static std::string getBoardConfig(const std::string &device);
 static std::string getQemuBin();
 
 int main(int argc, char *argv[]) {
-	argparse::ArgumentParser program("pmb887x-emu", "1.0.0");
+	argparse::ArgumentParser program("pmb887x-emu", PROJECT_VERSION);
 	program.add_description("Generic emulator for PMB887X-based mobile phones.");
 
 	program.add_group("Main options");
@@ -223,20 +224,9 @@ static std::string getBoardConfig(const std::string &device) {
 	std::filesystem::path exeDir = getExecutableDir();
 
 	std::vector<std::filesystem::path> variants;
-	if (isOSX()) {
-		variants = {
-			"/opt/homebrew/share/pmb887x-emu/" + file,
-			"/usr/local/share/pmb887x-emu/boards/" + file,
-		};
-	} else if (isUNIX()) {
-		variants = {
-			"/usr/share/pmb887x-emu/boards/" + file,
-			"/usr/local/share/pmb887x-emu/boards/" + file,
-		};
-	}
-
-	variants.emplace_back(exeDir / ("boards/" + file));
-	variants.emplace_back(exeDir / ("../bsp/lib/data/board/" + file));
+	variants.emplace_back(exeDir / ("../bsp/lib/data/board/" + file)); // build
+	variants.emplace_back(exeDir / ("../share/pmb887x-emu/boards/" + file)); // installed
+	variants.emplace_back(exeDir / ("boards/" + file)); // portable version
 
 	for (const auto &path : variants) {
 		std::error_code ec;
@@ -256,9 +246,8 @@ static std::string getQemuBin() {
 	std::vector<std::filesystem::path> variants;
 	if (isOSX()) {
 		variants = {
-			"/opt/homebrew/share/pmb887x-emu/qemu/bin/qemu-system-arm", // homebrew (arm)
-			"/usr/local/share/pmb887x-emu/qemu/bin/qemu-system-arm", // homebrew (intel)
 			exeDir / "qemu-build/qemu-system-arm", // build
+			exeDir / "../share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
 			exeDir / "qemu/bin/qemu-system-arm", // portable version
 		};
 	} else if (isWindows()) {
@@ -268,9 +257,8 @@ static std::string getQemuBin() {
 		};
 	} else {
 		variants = {
-			"/usr/share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
-			"/usr/local/share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
 			exeDir / "qemu-build/qemu-system-arm", // build
+			exeDir / "../share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
 			exeDir / "qemu/bin/qemu-system-arm", // portable version
 		};
 	}

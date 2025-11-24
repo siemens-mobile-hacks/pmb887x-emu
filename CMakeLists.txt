@@ -7,10 +7,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 include(ExternalProject)
 include(GNUInstallDirs)
 
+execute_process(
+	COMMAND git describe --tags --dirty
+	WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+	OUTPUT_VARIABLE PROJECT_VERSION
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+configure_file("src/config.h.in" "config.h" @ONLY)
+
 add_subdirectory(third_party/argparse)
 
 add_executable(emu src/main.cpp src/utils.cpp)
 set_target_properties(emu PROPERTIES OUTPUT_NAME "pmb887x-emu")
+target_include_directories(emu PRIVATE "${CMAKE_BINARY_DIR}")
 install(TARGETS emu RUNTIME DESTINATION bin)
 
 if (BUILD_STATIC)

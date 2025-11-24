@@ -67,7 +67,7 @@ pmb887x-emu --fullflash EL71.bin --device siemens-el71
 pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
 ```
 
-P.S. You can also use `./build/emu` instead of `pmb887x-emu` if you want to run it without installation.
+P.S. You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to run it without installation.
 
 # Real world example
 Let's assume you have a fullflash. Of course, simply running commands from the examples won't work. :)
