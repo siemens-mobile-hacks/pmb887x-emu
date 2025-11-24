@@ -17,4 +17,4 @@ jobs:
 
       - name: Building emulator
         run: |
-          tools/build.sh
+          tools/build_osx.sh
