@@ -112,7 +112,6 @@ else()
 		--enable-iconv
 		--enable-pixman
 		--enable-malloc-trim
-		--enable-multiprocess
 		--enable-tcg
 		--enable-capstone
 	)
@@ -132,6 +131,7 @@ else()
 			--enable-linux-io-uring
 			--enable-pa
 			--enable-xkbcommon
+			--enable-multiprocess
 		)
 	endif()
 
