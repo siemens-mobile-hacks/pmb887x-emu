@@ -12,6 +12,7 @@ class Pmb887xEmu < Formula
 		strategy :github_latest
 	end
 
+	depends_on "cmake" => :build
 	depends_on "libtool" => :build
 	depends_on "meson" => :build
 	depends_on "ninja" => :build

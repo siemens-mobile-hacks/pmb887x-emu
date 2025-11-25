@@ -16,6 +16,6 @@ services:
     volumes:
       - .:/app:Z
     command: bash -c "
-        mingw64-cmake -S . -B build-win64 &&
+        mingw64-cmake -S . -B build-win64 -DCMAKE_BUILD_TYPE=Release &&
         cmake --build build-win64 -j$(nproc)
       "

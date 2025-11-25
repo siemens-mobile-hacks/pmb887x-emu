@@ -4,6 +4,10 @@ project(pmb887x-emu C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
+if (CMAKE_BUILD_TYPE MATCHES "Release")
+	set(INTERPROCEDURAL_OPTIMIZATION TRUE)
+endif()
+
 include(ExternalProject)
 include(GNUInstallDirs)
 
@@ -119,6 +123,7 @@ else()
 		SET(QEMU_CONFIGURE_OPTIONS
 			${QEMU_CONFIGURE_OPTIONS}
 			--enable-cocoa
+			--enable-coreaudio
 		)
 	else()
 		SET(QEMU_CONFIGURE_OPTIONS
@@ -137,6 +142,10 @@ else()
 
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
 		SET(QEMU_CONFIGURE_OPTIONS ${QEMU_CONFIGURE_OPTIONS} --enable-lto --enable-strip)
+	endif()
+
+	if (BUILD_STATIC)
+		SET(QEMU_CONFIGURE_OPTIONS ${QEMU_CONFIGURE_OPTIONS} --static)
 	endif()
 
 	install(

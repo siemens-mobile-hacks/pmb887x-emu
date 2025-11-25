@@ -244,20 +244,14 @@ static std::string getQemuBin() {
 	std::filesystem::path exeDir = getExecutableDir();
 
 	std::vector<std::filesystem::path> variants;
-	if (isOSX()) {
-		variants = {
-			exeDir / "qemu-build/qemu-system-arm", // build
-			exeDir / "../share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
-			exeDir / "qemu/bin/qemu-system-arm", // portable version
-		};
-	} else if (isWindows()) {
+	if (isWindows()) {
 		variants = {
 			exeDir / "qemu-build/qemu-system-arm.exe", // build
 			exeDir / "qemu/qemu-system-arm.exe", // portable version
 		};
 	} else {
 		variants = {
-			exeDir / "qemu-build/qemu-system-arm", // build
+			exeDir / "qemu-install/bin/qemu-system-arm", // build
 			exeDir / "../share/pmb887x-emu/qemu/bin/qemu-system-arm", // installed
 			exeDir / "qemu/bin/qemu-system-arm", // portable version
 		};
