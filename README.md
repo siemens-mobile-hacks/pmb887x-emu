@@ -16,6 +16,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
   cmake -B build
   cmake --build build -j$(nproc)
   sudo cmake --install build
+  # or sudo cmake --install build --prefix /opt/pmb887x-emu
   ```
 
 # Usage
