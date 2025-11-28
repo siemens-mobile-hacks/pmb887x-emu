@@ -5,7 +5,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 # Installation
 - Windows: download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
 - ArchLinux: `yay -S pmb887x-emu`
-- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu`
+- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu` or download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
 - Build from sources:
   ```bash
   sudo apt-get build-dep qemu # Ubuntu or Debian
