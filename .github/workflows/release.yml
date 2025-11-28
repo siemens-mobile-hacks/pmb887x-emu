@@ -16,15 +16,43 @@ jobs:
         with: 
           submodules: true
 
-      - name: Building emulator
+      - name: Building emulator (Windows)
         run: |
           tools/build_win.sh
-          cd build-win64/dist && zip -r /tmp/pmb887x-emu-windows.zip .
+          OS_ARCH=$(uname -m)
+          cd build-win64/dist && zip -r "/tmp/pmb887x-emu_Windows-$OS_ARCH.zip" .
 
-      - uses: softprops/action-gh-release@v1
+      - name: Push release
+        uses: softprops/action-gh-release@v1
         with:
           token: "${{ secrets.GITHUB_TOKEN }}"
-          files: /tmp/pmb887x-emu-windows.zip
+          files: /tmp/pmb887x-emu-*.zip
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+
+      - name: Installing qemu dependencies
+        run: |
+          brew install cmake glib libtool meson ninja pkgconf python@3.14 capstone jpeg-turbo libpng lzo pixman zstd coreutils
+
+      - name: Building emulator
+        run: |
+          OS_VERSION=$(brew ruby -e 'puts MacOS.version.pretty_name')
+          OS_ARCH=$(uname -m)
+          tools/build.sh
+          cmake --install build --prefix dist
+          cd dist
+          zip -r "/tmp/pmb887x-emu_MacOS-$OS_VERSION-$OS_ARCH.zip" .
+
+      - name: Push release
+        uses: softprops/action-gh-release@v1
+        with:
+          token: "${{ secrets.GITHUB_TOKEN }}"
+          files: /tmp/pmb887x-emu-*.zip
 
       - name: Check out homebrew tap
         uses: actions/checkout@v3

@@ -3,7 +3,7 @@ This is a hardware emulator for any boards with pmb8875/pmb8876 CPU, mostly lege
 The current state is very early alpha with many bugs and most hardware unimplemented. :)
 
 # Installation
-- Windows: download **pmb887x-emu-windows.zip** from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
+- Windows: download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
 - ArchLinux: `yay -S pmb887x-emu`
 - OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu`
 - Build from sources:
@@ -13,7 +13,8 @@ The current state is very early alpha with many bugs and most hardware unimpleme
   git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/siemens-mobile-hacks/pmb887x-emu
   cd pmb887x-emu
 
-  ./tools/build.sh
+  cmake -B build
+  cmake --build build -j$(nproc)
   sudo cmake --install build
   ```
 
