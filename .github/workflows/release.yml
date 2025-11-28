@@ -63,8 +63,8 @@ jobs:
 
       - name: Generate formula
         run: |
-          sed -i "s/RELEASE_TAG_NAME/$GITHUB_REF_NAME/g" pmb887x-emu.rb
-          sed -i "s/RELEASE_TAG_HASH/$GITHUB_SHA/g" pmb887x-emu.rb
+          sed -i "" "s/RELEASE_TAG_NAME/$GITHUB_REF_NAME/g" pmb887x-emu.rb
+          sed -i "" "s/RELEASE_TAG_HASH/$GITHUB_SHA/g" pmb887x-emu.rb
           cat pmb887x-emu.rb
 
           cd tap
