@@ -116,8 +116,7 @@ rovements throughout
 |--------------------|--------------|
 | BenQ-Siemens E71   | siemens-e71  |
 | BenQ-Siemens EL71  | siemens-el71 |
-| BenQ-Siemens CF130 | siemens-el71 |
-| BenQ-Siemens M72   | siemens-m72  |
+| BenQ-Siemens C1F0  | siemens-el71 |
 | BenQ-Siemens CL61  | siemens-cl61 |
 | BenQ-Siemens C81   | siemens-c81  |
 | BenQ-Siemens M81   | siemens-m81  |
