@@ -5,7 +5,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 # Installation
 - Windows: download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
 - ArchLinux: `yay -S pmb887x-emu`
-- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu`
+- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu` or download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
 - Build from sources:
   ```bash
   sudo apt-get build-dep qemu # Ubuntu or Debian
@@ -16,6 +16,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
   cmake -B build
   cmake --build build -j$(nproc)
   sudo cmake --install build
+  # or sudo cmake --install build --prefix /opt/pmb887x-emu
   ```
 
 # Usage
@@ -115,8 +116,7 @@ rovements throughout
 |--------------------|--------------|
 | BenQ-Siemens E71   | siemens-e71  |
 | BenQ-Siemens EL71  | siemens-el71 |
-| BenQ-Siemens CF130 | siemens-el71 |
-| BenQ-Siemens M72   | siemens-m72  |
+| BenQ-Siemens C1F0  | siemens-el71 |
 | BenQ-Siemens CL61  | siemens-cl61 |
 | BenQ-Siemens C81   | siemens-c81  |
 | BenQ-Siemens M81   | siemens-m81  |
