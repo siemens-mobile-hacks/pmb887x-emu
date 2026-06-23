@@ -128,3 +128,7 @@ rovements throughout
 | Phone              | Emulator     |
 |--------------------|--------------|
 | Siemens CX75       | siemens-cx75 |
+| Siemens CX65       | siemens-cx65 |
+| Siemens CX70       | siemens-cx70 |
+| Siemens C72        | siemens-c72  |
+| Siemens C75        | siemens-c75  |
