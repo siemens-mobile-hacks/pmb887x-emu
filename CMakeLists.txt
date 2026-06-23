@@ -67,6 +67,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	add_custom_command(TARGET emu POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "${DIST_DIR}")
 	add_custom_command(TARGET emu POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "${DIST_DIR}/qemu")
 	add_custom_command(TARGET emu POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "${DIST_DIR}/boards")
+	add_custom_command(TARGET emu POST_BUILD COMMAND ${CMAKE_COMMAND} -E make_directory "${DIST_DIR}/boards/include")
 
 	# Copy executables
 	add_custom_command(TARGET emu POST_BUILD
@@ -87,7 +88,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	file(GLOB BOARDS_LIST "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/*.toml")
 	foreach(board_file IN LISTS BOARDS_LIST)
 		add_custom_command(TARGET emu POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards"
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards/"
 			VERBATIM
 		)
 	endforeach()
@@ -95,7 +96,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	file(GLOB BOARDS_LIST "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/include/*.toml")
 	foreach(board_file IN LISTS BOARDS_LIST)
 		add_custom_command(TARGET emu POST_BUILD
-			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards/include"
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards/include/"
 			VERBATIM
 		)
 	endforeach()
