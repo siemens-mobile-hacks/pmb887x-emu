@@ -84,10 +84,18 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	endforeach()
 
 	# Copy boards
-	file(GLOB SYSROOT_DLLS "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/*.toml")
-	foreach(board_file IN LISTS SYSROOT_DLLS)
+	file(GLOB BOARDS_LIST "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/*.toml")
+	foreach(board_file IN LISTS BOARDS_LIST)
 		add_custom_command(TARGET emu POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards"
+			VERBATIM
+		)
+	endforeach()
+
+	file(GLOB BOARDS_LIST "${CMAKE_SOURCE_DIR}/bsp/lib/data/board/include/*.toml")
+	foreach(board_file IN LISTS BOARDS_LIST)
+		add_custom_command(TARGET emu POST_BUILD
+			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${board_file}" "${DIST_DIR}/boards/include"
 			VERBATIM
 		)
 	endforeach()
