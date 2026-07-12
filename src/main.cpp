@@ -64,6 +64,11 @@ int main(int argc, char *argv[]) {
 		.default_value(false)
 		.implicit_value(true);
 
+	program.add_argument("-W", "--wait-for-serial")
+		.help("Wait for first byte on serial port")
+		.default_value(false)
+		.implicit_value(true);
+
 	program.add_group("Trace options");
 
 	program.add_argument("--gdb")
@@ -125,6 +130,9 @@ int main(int argc, char *argv[]) {
 
 	if (program.get<bool>("--qemu-stop-on-exception"))
 		qemuEnv["QEMU_ARM_STOP_ON_EXCP"] = "1";
+
+	if (program.get<bool>("--wait-for-serial"))
+		qemuEnv["PMB887X_WAIT_FOR_SERIAL"] = "1";
 
 	// Default emulator IMEI & ESN
 	if (device.starts_with("siemens-") && siemensEsn == "")
