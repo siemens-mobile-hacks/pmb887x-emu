@@ -21,7 +21,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 
 # Usage
 ```
-Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--serial VAR] [--usartd] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
+Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
 Generic emulator for PMB887X-based mobile phones.
 
@@ -43,6 +43,7 @@ OTP options (detailed usage):
 Serial options (detailed usage):
   --serial                      Connect host serial port to QEMU 
   --usartd                      Connect to usartd.pl in QEMU 
+  -W, --wait-for-serial         Wait for first byte on serial port 
 
 Trace options (detailed usage):
   --gdb                         Run firmware with GDB 
@@ -54,7 +55,7 @@ QEMU options (detailed usage):
   --qemu-monitor                QEMU monitor 
   --qemu-run-with-gdb           Run emulator using GDB (debug) 
   -E, --qemu-stop-on-exception  Stop QEMU on ARM exception 
-  --qemu-debug                  QEMU debug options 
+  --qemu-debug                  QEMU debug options
 ```
 
 **Some useful examples:**
