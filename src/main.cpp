@@ -1,12 +1,16 @@
 #include <argparse/argparse.hpp>
 
 #include <algorithm>
+#include <array>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "config.h"
 #include "utils.h"
@@ -15,9 +19,18 @@ static std::string getBoardConfig(const std::string &device);
 static std::string getQemuBin();
 static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode);
 
-static constexpr std::size_t SIM_IMSI_LENGTH = 15;
-static constexpr std::size_t SIM_OPERATOR_MIN_LENGTH = 5;
-static constexpr std::size_t SIM_OPERATOR_MAX_LENGTH = 6;
+struct FlashBankOptions {
+	std::string otp0;
+	std::string otp1;
+	std::string otp0File;
+	std::string otp1File;
+	std::string efaFile;
+};
+
+static constexpr size_t SIM_IMSI_LENGTH = 15;
+static constexpr size_t SIM_OPERATOR_MIN_LENGTH = 5;
+static constexpr size_t SIM_OPERATOR_MAX_LENGTH = 6;
+static constexpr size_t FLASH_BANK_COUNT = 4;
 
 int main(int argc, char *argv[]) {
 	argparse::ArgumentParser program("pmb887x-emu", PROJECT_VERSION);
@@ -42,15 +55,54 @@ int main(int argc, char *argv[]) {
 
 	program.add_group("OTP options");
 
-	program.add_argument("--flash-otp0")
+	program.add_argument("--flash-otp0", "--flash-0-otp0")
 		.help("Raw NOR flash otp0 value in HEX (with lock bits)")
 		.nargs(1)
 		.default_value("");
 
-	program.add_argument("--flash-otp1")
+	program.add_argument("--flash-otp1", "--flash-0-otp1")
 		.help("Raw NOR flash otp1 value in HEX (with lock bits)")
 		.nargs(1)
 		.default_value("");
+
+	program.add_argument("--flash-otp0-file", "--flash-0-otp0-file")
+		.help("Raw NOR flash OTP0 file")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--flash-otp1-file", "--flash-0-otp1-file")
+		.help("Raw NOR flash OTP1 file")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--flash-efa-file", "--flash-0-efa-file")
+		.help("Raw NOR flash EFA file")
+		.nargs(1)
+		.default_value("");
+
+	for (size_t index = 1; index < FLASH_BANK_COUNT; index++) {
+		const std::string prefix = "--flash-" + std::to_string(index) + "-";
+		program.add_argument(prefix + "otp0")
+			.help("Raw NOR flash otp0 value in HEX (with lock bits)")
+			.nargs(1)
+			.default_value("");
+		program.add_argument(prefix + "otp1")
+			.help("Raw NOR flash otp1 value in HEX (with lock bits)")
+			.nargs(1)
+			.default_value("");
+		program.add_argument(prefix + "otp0-file")
+			.help("Raw NOR flash OTP0 file")
+			.nargs(1)
+			.default_value("");
+		program.add_argument(prefix + "otp1-file")
+			.help("Raw NOR flash OTP1 file")
+			.nargs(1)
+			.default_value("");
+		program.add_argument(prefix + "efa-file")
+			.help("Raw NOR flash EFA file")
+			.nargs(1)
+			.default_value("");
+	}
 
 	program.add_argument("--siemens-esn")
 		.help("Siemens flash ESN (HEX)")
@@ -160,8 +212,7 @@ int main(int argc, char *argv[]) {
 	auto device = program.get<std::string>("--device");
 	auto siemensEsn = program.get<std::string>("--siemens-esn");
 	auto siemensImei = program.get<std::string>("--siemens-imei");
-	auto flashOtp0 = program.get<std::string>("--flash-otp0");
-	auto flashOtp1 = program.get<std::string>("--flash-otp1");
+	auto fullflash = program.get<std::string>("--fullflash");
 	auto sim = program.get<std::string>("--sim");
 #if HAVE_SIM_READER
 	auto simReaderName = program.get<std::string>("--sim-reader-name");
@@ -215,20 +266,41 @@ int main(int argc, char *argv[]) {
 	if (program.get<bool>("--wait-for-serial"))
 		qemuEnv["PMB887X_WAIT_FOR_SERIAL"] = "1";
 
-	// Default emulator IMEI & ESN
-	if (device.starts_with("siemens-") && siemensEsn == "")
+	std::array<FlashBankOptions, FLASH_BANK_COUNT> flashOptions;
+	for (size_t index = 0; index < FLASH_BANK_COUNT; index++) {
+		const std::string prefix = index == 0 ? "--flash-" : "--flash-" + std::to_string(index) + "-";
+		flashOptions[index].otp0 = program.get<std::string>(prefix + "otp0");
+		flashOptions[index].otp1 = program.get<std::string>(prefix + "otp1");
+		flashOptions[index].otp0File = program.get<std::string>(prefix + "otp0-file");
+		flashOptions[index].otp1File = program.get<std::string>(prefix + "otp1-file");
+		flashOptions[index].efaFile = program.get<std::string>(prefix + "efa-file");
+	}
+
+	FlashBankOptions &flash0 = flashOptions[0];
+	// Default emulator IMEI & ESN for FLASH0
+	if (device.starts_with("siemens-") && siemensEsn.empty() && flash0.otp0.empty())
 		siemensEsn = "12345678";
-	if (device.starts_with("siemens-") && siemensImei == "")
+	if (device.starts_with("siemens-") && siemensImei.empty() && flash0.otp1.empty())
 		siemensImei = "490154203237518"; // Nokia *trollface*
 
-	// Flash OTP
-	qemuEnv["PMB887X_FLASH_OTP0"] = siemensEsn != "" ?
-		convertESNtoOTP(siemensEsn) :
-		program.get<std::string>("--flash-otp0");
-	qemuEnv["PMB887X_FLASH_OTP1"] = siemensImei != "" ?
-		convertIMEItoOTP(siemensImei) :
-		program.get<std::string>("--flash-otp1");
-
+	if (flash0.otp0.empty() && !siemensEsn.empty())
+		flash0.otp0 = convertESNtoOTP(siemensEsn);
+	if (flash0.otp1.empty() && !siemensImei.empty())
+		flash0.otp1 = convertIMEItoOTP(siemensImei);
+	for (size_t index = 0; index < FLASH_BANK_COUNT; index++) {
+		const FlashBankOptions &options = flashOptions[index];
+		const std::string prefix = "PMB887X_FLASH" + std::to_string(index) + "_";
+		if (!options.otp0.empty())
+			qemuEnv[prefix + "OTP0"] = options.otp0;
+		if (!options.otp1.empty())
+			qemuEnv[prefix + "OTP1"] = options.otp1;
+		if (!options.otp0File.empty())
+			qemuEnv[prefix + "OTP0_FILE"] = options.otp0File;
+		if (!options.otp1File.empty())
+			qemuEnv[prefix + "OTP1_FILE"] = options.otp1File;
+		if (!options.efaFile.empty())
+			qemuEnv[prefix + "EFA_FILE"] = options.efaFile;
+	}
 	if (program.get<bool>("--qemu-run-with-gdb")) {
 		qemuArgs.emplace_back("gdb");
 		qemuArgs.emplace_back("--args");
@@ -245,10 +317,10 @@ int main(int argc, char *argv[]) {
 	if (program.get<bool>("--rw")) {
 		std::cout << "Write mode enabled! Your fullflash will be modified!\n";
 		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,format=raw,file=" + program.get<std::string>("--fullflash"));
+		qemuArgs.emplace_back("if=pflash,format=raw,file=" + fullflash);
 	} else {
 		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + program.get<std::string>("--fullflash"));
+		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + fullflash);
 	}
 
 	if (program.present("--trace"))
@@ -307,14 +379,14 @@ int main(int argc, char *argv[]) {
 
 static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode) {
 	const bool operatorValid = (operatorCode.size() == SIM_OPERATOR_MIN_LENGTH || operatorCode.size() == SIM_OPERATOR_MAX_LENGTH) &&
-		std::all_of(operatorCode.begin(), operatorCode.end(), [](unsigned char value) { return std::isdigit(value); });
+		std::all_of(operatorCode.begin(), operatorCode.end(), [](uint8_t value) { return std::isdigit(value); });
 	if (!operatorValid)
 		throw std::invalid_argument("--sim-operator must contain MCC+MNC as 5 or 6 decimal digits");
 
 	if (imsi.empty())
 		return;
 	const bool imsiValid = imsi.size() == SIM_IMSI_LENGTH &&
-		std::all_of(imsi.begin(), imsi.end(), [](unsigned char value) { return std::isdigit(value); });
+		std::all_of(imsi.begin(), imsi.end(), [](uint8_t value) { return std::isdigit(value); });
 	if (!imsiValid)
 		throw std::invalid_argument("--sim-imsi must contain exactly 15 decimal digits");
 	if (!imsi.starts_with(operatorCode))
@@ -335,9 +407,8 @@ static std::string getBoardConfig(const std::string &device) {
 
 	for (const auto &path : variants) {
 		std::error_code ec;
-		if (std::filesystem::exists(path, ec) && !ec) {
+		if (std::filesystem::exists(path, ec) && !ec)
 			return std::filesystem::canonical(path).string();
-		}
 	}
 
 	throw std::runtime_error("QEMU configuration file not found: " + device);
@@ -364,9 +435,8 @@ static std::string getQemuBin() {
 
 	for (const auto &path : variants) {
 		std::error_code ec;
-		if (std::filesystem::exists(path, ec) && !ec) {
+		if (std::filesystem::exists(path, ec) && !ec)
 			return std::filesystem::canonical(path).string();
-		}
 	}
 
 	throw std::runtime_error("QEMU binary not found!");
