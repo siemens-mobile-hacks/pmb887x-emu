@@ -1,7 +1,11 @@
 #include <argparse/argparse.hpp>
+
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
-#include <string>
 #include <iostream>
+#include <stdexcept>
+#include <string>
 #include <unordered_map>
 
 #include "config.h"
@@ -9,6 +13,11 @@
 
 static std::string getBoardConfig(const std::string &device);
 static std::string getQemuBin();
+static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode);
+
+static constexpr std::size_t SIM_IMSI_LENGTH = 15;
+static constexpr std::size_t SIM_OPERATOR_MIN_LENGTH = 5;
+static constexpr std::size_t SIM_OPERATOR_MAX_LENGTH = 6;
 
 int main(int argc, char *argv[]) {
 	argparse::ArgumentParser program("pmb887x-emu", PROJECT_VERSION);
@@ -52,6 +61,34 @@ int main(int argc, char *argv[]) {
 		.help("Siemens flash IMEI (number)")
 		.nargs(1)
 		.default_value("");
+
+	program.add_group("SIM options");
+
+	program.add_argument("--sim")
+#if HAVE_SIM_READER
+		.help("SIM source: virtual, none, or reader")
+#else
+		.help("SIM source: virtual or none")
+#endif
+		.nargs(1)
+		.default_value("virtual");
+
+#if HAVE_SIM_READER
+	program.add_argument("--sim-reader-name")
+		.help("Exact PC/SC reader name for --sim reader (uses the first reader with a card by default)")
+		.nargs(1)
+		.default_value("");
+#endif
+
+	program.add_argument("--sim-imsi")
+		.help("Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default)")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--sim-operator")
+		.help("Virtual SIM operator code as MCC+MNC (5 or 6 decimal digits)")
+		.nargs(1)
+		.default_value("00101");
 
 	program.add_group("Serial options");
 
@@ -110,7 +147,7 @@ int main(int argc, char *argv[]) {
 
 	try {
 		program.parse_args(argc, argv);
-	} catch (const std::exception& err) {
+	} catch (const std::exception &err) {
 		std::cerr << err.what() << std::endl;
 		std::cerr << program;
 		std::exit(1);
@@ -125,8 +162,52 @@ int main(int argc, char *argv[]) {
 	auto siemensImei = program.get<std::string>("--siemens-imei");
 	auto flashOtp0 = program.get<std::string>("--flash-otp0");
 	auto flashOtp1 = program.get<std::string>("--flash-otp1");
+	auto sim = program.get<std::string>("--sim");
+#if HAVE_SIM_READER
+	auto simReaderName = program.get<std::string>("--sim-reader-name");
+#endif
+	auto simImsi = program.get<std::string>("--sim-imsi");
+	auto simOperator = program.get<std::string>("--sim-operator");
+
+	if (sim.empty()) {
+		std::cerr << "--sim must not be empty\n";
+		return 1;
+	}
+#if HAVE_SIM_READER
+	if (sim != "virtual" && sim != "none" && sim != "reader") {
+		std::cerr << "--sim must be virtual, none, or reader\n";
+		return 1;
+	}
+	if (!simReaderName.empty() && sim != "reader") {
+		std::cerr << "--sim-reader-name can only be used with --sim reader\n";
+		return 1;
+	}
+#else
+	if (sim != "virtual" && sim != "none") {
+		std::cerr << "--sim must be virtual or none\n";
+		return 1;
+	}
+#endif
+	if (sim == "virtual") {
+		try {
+			validateSimIdentity(simImsi, simOperator);
+		} catch (const std::invalid_argument &err) {
+			std::cerr << err.what() << "\n";
+			return 1;
+		}
+	}
 
 	qemuEnv["PMB887X_BOARD"] = getBoardConfig(device);
+	qemuEnv["PMB887X_SIM"] = sim;
+	if (sim == "virtual") {
+		qemuEnv["PMB887X_SIM_OPERATOR"] = simOperator;
+		if (!simImsi.empty())
+			qemuEnv["PMB887X_SIM_IMSI"] = simImsi;
+#if HAVE_SIM_READER
+	} else if (!simReaderName.empty()) {
+		qemuEnv["PMB887X_SIM_READER_NAME"] = simReaderName;
+#endif
+	}
 
 	if (program.get<bool>("--qemu-stop-on-exception"))
 		qemuEnv["QEMU_ARM_STOP_ON_EXCP"] = "1";
@@ -222,6 +303,22 @@ int main(int argc, char *argv[]) {
 	std::cout << "---------------------------------------------------\n";
 
 	return exec(qemuArgs);
+}
+
+static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode) {
+	const bool operatorValid = (operatorCode.size() == SIM_OPERATOR_MIN_LENGTH || operatorCode.size() == SIM_OPERATOR_MAX_LENGTH) &&
+		std::all_of(operatorCode.begin(), operatorCode.end(), [](unsigned char value) { return std::isdigit(value); });
+	if (!operatorValid)
+		throw std::invalid_argument("--sim-operator must contain MCC+MNC as 5 or 6 decimal digits");
+
+	if (imsi.empty())
+		return;
+	const bool imsiValid = imsi.size() == SIM_IMSI_LENGTH &&
+		std::all_of(imsi.begin(), imsi.end(), [](unsigned char value) { return std::isdigit(value); });
+	if (!imsiValid)
+		throw std::invalid_argument("--sim-imsi must contain exactly 15 decimal digits");
+	if (!imsi.starts_with(operatorCode))
+		throw std::invalid_argument("--sim-imsi must start with the MCC+MNC specified by --sim-operator");
 }
 
 static std::string getBoardConfig(const std::string &device) {

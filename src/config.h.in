@@ -1,3 +1,4 @@
 #pragma once
 
 #define PROJECT_VERSION "@PROJECT_VERSION@"
+#define HAVE_SIM_READER @HAVE_SIM_READER@

@@ -9,6 +9,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 - Build from sources:
   ```bash
   sudo apt-get build-dep qemu # Ubuntu or Debian
+  sudo apt-get install libcacard-dev
 
   git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/siemens-mobile-hacks/pmb887x-emu
   cd pmb887x-emu
@@ -21,7 +22,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 
 # Usage
 ```
-Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
+Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
 Generic emulator for PMB887X-based mobile phones.
 
@@ -39,6 +40,12 @@ OTP options (detailed usage):
   --flash-otp1                  Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
   --siemens-esn                 Siemens flash ESN (HEX) [nargs=0..1] [default: ""]
   --siemens-imei                Siemens flash IMEI (number) [nargs=0..1] [default: ""]
+
+SIM options (detailed usage):
+  --sim                         SIM source: virtual, none, or reader [nargs=0..1] [default: "virtual"]
+  --sim-reader-name             Exact PC/SC reader name for --sim reader (uses the first reader with a card by default) [nargs=0..1] [default: ""]
+  --sim-imsi                    Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default) [nargs=0..1] [default: ""]
+  --sim-operator                Virtual SIM operator code as MCC+MNC (5 or 6 decimal digits) [nargs=0..1] [default: "00101"]
 
 Serial options (detailed usage):
   --serial                      Connect host serial port to QEMU 
@@ -97,9 +104,9 @@ Once the emulator is running, you should first see the BENQ-Siemens boot screen 
 
 Don't worry, that's okay. :)
 
-Currently, the emulator does not support SIM card emulation.
+The virtual SIM is enabled by default. Use `--sim none` to disable it. Operator-locked firmware may require matching `--sim-operator` or `--sim-imsi`.
 
-If you would like to get past the "Insert your SIM card" screen, you will also need to apply a patch like this one: https://patches.kibab.com/patches/details.php5?id=7116 to your fullflash file. This can be done using V_Klay.
+See [SIM card setup](docs/sim-card.md).
 
 # Keyboard
 You can press keys on the phone keyboard using your computer keyboard.

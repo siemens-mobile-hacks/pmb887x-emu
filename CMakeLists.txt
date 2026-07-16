@@ -17,6 +17,13 @@ execute_process(
 	OUTPUT_VARIABLE PROJECT_VERSION
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
+
+if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+	set(HAVE_SIM_READER 0)
+else()
+	set(HAVE_SIM_READER 1)
+endif()
+
 configure_file("src/config.h.in" "config.h" @ONLY)
 
 add_subdirectory(third_party/argparse)
@@ -137,6 +144,7 @@ else()
 	else()
 		SET(QEMU_CONFIGURE_OPTIONS
 			${QEMU_CONFIGURE_OPTIONS}
+			--enable-smartcard
 			--enable-gtk
 			--enable-iconv
 			--enable-libudev
