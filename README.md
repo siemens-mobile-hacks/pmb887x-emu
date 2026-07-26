@@ -58,7 +58,7 @@ Serial options (detailed usage):
 Trace options (detailed usage):
   --gdb                         Run firmware with GDB 
   -D, --trace                   CPU IO + CPU emulation log 
-  --trace-io                    CPU IO tracing only 
+  --trace-io                    I/O tracing
   --trace-log                   CPU emulation logs only 
 
 QEMU options (detailed usage):

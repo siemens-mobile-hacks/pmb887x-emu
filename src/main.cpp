@@ -170,7 +170,7 @@ int main(int argc, char *argv[]) {
 		.nargs(1);
 
 	program.add_argument("--trace-io")
-		.help("CPU IO tracing only")
+		.help("I/O tracing")
 		.nargs(1);
 
 	program.add_argument("--trace-log")
