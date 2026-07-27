@@ -22,7 +22,7 @@ The current state is very early alpha with many bugs and most hardware unimpleme
 
 # Usage
 ```
-Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--flash-otp0-file VAR] [--flash-otp1-file VAR] [--flash-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
+Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--flash-otp0-file VAR] [--flash-otp1-file VAR] [--flash-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
 Generic emulator for PMB887X-based mobile phones.
 
@@ -49,6 +49,9 @@ SIM options (detailed usage):
   --sim-reader-name             Exact PC/SC reader name for --sim reader (uses the first reader with a card by default) [nargs=0..1] [default: ""]
   --sim-imsi                    Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default) [nargs=0..1] [default: ""]
   --sim-operator                Virtual SIM operator code as MCC+MNC (5 or 6 decimal digits) [nargs=0..1] [default: "00101"]
+
+Startup options (detailed usage):
+  --startup                     Startup scenario from the board config [nargs=0..1] [default: "ONLINE"]
 
 Serial options (detailed usage):
   --serial                      Connect host serial port to QEMU 
@@ -115,25 +118,42 @@ You have two options:
    pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
    ```
 
-Once the emulator is running, you should first see the BENQ-Siemens boot screen and then something like this:
-
-![A screenshot of a running emulator](docs/emu.png)
-
-Don't worry, that's okay. :)
-
 The virtual SIM is enabled by default. Use `--sim none` to disable it. Operator-locked firmware may require matching `--sim-operator` or `--sim-imsi`.
 
 See [SIM card setup](docs/sim-card.md).
 
 # Keyboard
-You can press keys on the phone keyboard using your computer keyboard.
+You can press phone keys using the following computer keyboard shortcuts. Only keys available on the selected board are
+active.
 
-* Soft keys: Left: `F1`, Right: `F2`. Send/Start Call: `F3`. End Call: `F4`.
-* Navigation (joystick): `Arrow keys`. Press navigation key: `Enter`.
-* Number keys and `*` are mapped to NUM-keys. `#` is mapped to Numpad `/`.
+| Phone key | Computer key |
+|-----------|--------------|
+| Navigation | Arrow keys |
+| Navigation center | `Enter` or Numpad `Enter` |
+| Left soft key | `F1` |
+| Right soft key | `F2` |
+| Send | `F3` |
+| End call | `F4` |
+| Music | `F5` |
+| Play/pause | `F6` |
+| Push-to-talk | `F7` |
+| Camera | `F8` |
+| Browser | `F9` |
+| Volume up | Numpad `+` |
+| Volume down | Numpad `-` |
+| `0` | `0` or Numpad `0` |
+| `1` / `2` / `3` | `1` / `2` / `3` or Numpad `7` / `8` / `9` |
+| `4` / `5` / `6` | `4` / `5` / `6` or Numpad `4` / `5` / `6` |
+| `7` / `8` / `9` | `7` / `8` / `9` or Numpad `1` / `2` / `3` |
+| `*` | Numpad `*` |
+| `#` | Numpad `/` |
 
-The full key mapping is defined in [board.c](https://github.com/Azq2/qemu-pmb887x/blob/7c83c045a11cd110d220ec39a6cad3dbafe86e6c/hw/arm/pmb887x/boards.c#L19-L67).
-rovements throughout
+# Startup scenarios
+
+Use `--startup NAME` to select a startup scenario. `ONLINE` is used by default. Supported boards may also provide
+`PTEST` for the service-mode key combination and `OFFLINE` for starting without pressed keys.
+
+Startup keys are pressed when firmware execution begins. The release countdown starts when the keypad becomes ready.
 
 # Supported hardware
 **Siemens SG2 platform**

@@ -142,6 +142,13 @@ int main(int argc, char *argv[]) {
 		.nargs(1)
 		.default_value("00101");
 
+	program.add_group("Startup options");
+
+	program.add_argument("--startup")
+		.help("Startup scenario from the board config")
+		.nargs(1)
+		.default_value("ONLINE");
+
 	program.add_group("Serial options");
 
 	program.add_argument("--serial")
@@ -219,6 +226,7 @@ int main(int argc, char *argv[]) {
 #endif
 	auto simImsi = program.get<std::string>("--sim-imsi");
 	auto simOperator = program.get<std::string>("--sim-operator");
+	auto startup = program.get<std::string>("--startup");
 
 	if (sim.empty()) {
 		std::cerr << "--sim must not be empty\n";
@@ -239,6 +247,10 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 #endif
+	if (startup.empty()) {
+		std::cerr << "--startup must not be empty\n";
+		return 1;
+	}
 	if (sim == "virtual") {
 		try {
 			validateSimIdentity(simImsi, simOperator);
@@ -249,6 +261,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	qemuEnv["PMB887X_BOARD"] = getBoardConfig(device);
+	qemuEnv["PMB887X_STARTUP"] = startup;
 	qemuEnv["PMB887X_SIM"] = sim;
 	if (sim == "virtual") {
 		qemuEnv["PMB887X_SIM_OPERATOR"] = simOperator;
