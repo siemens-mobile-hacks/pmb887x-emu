@@ -118,6 +118,24 @@ You have two options:
    pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
    ```
 
+LG phones do not need ESN/IMEI, but they need a provisioned EFA region to work correctly (though not strictly required to boot) - commonly seen as separate 32K `.eep` image (unencrypted, a valid one should begin with `FF` bytes and contain model/version info around 0x72A0) or appended as 32K tail at the end of a `.bin` dump.
+
+If you have a `.bin` flash you need to split it into two files, eg. for KE970:
+
+```sh
+dd if="KE970P40-07-V10j-XXX-XX JUL 15 2008.bin" of=KE970.bin          bs=1M count=128
+dd if="KE970P40-07-V10j-XXX-XX JUL 15 2008.bin" of=KE970.bin.cfi-efa  bs=1M skip=128
+
+stat -c '%n %s' KE970.bin KE970.bin.cfi-efa
+# KE970.bin 134217728
+# KE970.bin.cfi-efa 32768
+```
+
+Then run the emulator like this:
+```
+pmb887x-emu --fullflash KE970.bin --device lg-ke970
+```
+
 The virtual SIM is enabled by default. Use `--sim none` to disable it. Operator-locked firmware may require matching `--sim-operator` or `--sim-imsi`.
 
 See [SIM card setup](docs/sim-card.md).
@@ -141,6 +159,7 @@ active.
 | Browser | `F9` |
 | Volume up | Numpad `+` |
 | Volume down | Numpad `-` |
+| `C` | Backspace |
 | `0` | `0` or Numpad `0` |
 | `1` / `2` / `3` | `1` / `2` / `3` or Numpad `7` / `8` / `9` |
 | `4` / `5` / `6` | `4` / `5` / `6` or Numpad `4` / `5` / `6` |
@@ -177,3 +196,9 @@ Startup keys are pressed when firmware execution begins. The release countdown s
 | Siemens CX70       | siemens-cx70 |
 | Siemens C72        | siemens-c72  |
 | Siemens C75        | siemens-c75  |
+
+**LG SG2 platform**
+| Phone                         | Emulator     |
+|-------------------------------|--------------|
+| LG KE970 (Shine)              | lg-ke970     |
+| LG KE800 (Chocolate Platinum) | lg-ke800     |
