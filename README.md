@@ -20,6 +20,8 @@ The current state is very early alpha with many bugs and most hardware unimpleme
   # or sudo cmake --install build --prefix /opt/pmb887x-emu
   ```
 
+You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to run it without installation.
+
 # Usage
 ```
 Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--flash-otp0-file VAR] [--flash-otp1-file VAR] [--flash-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
@@ -96,8 +98,6 @@ With `--rw`, FLASH0 stores changes in raw sidecars next to the fullflash:
 Files are created on the first successful data change. A missing or empty file uses the initial value from `--flash-otp0`, `--flash-otp1`, `--siemens-esn` or `--siemens-imei`. A non-empty file overrides the initial value and must match the flash geometry. Without `--rw`, files are loaded but not changed.
 
 Use `--flash-N-otp0-file`, `--flash-N-otp1-file` and `--flash-N-efa-file` to override paths for banks 0-3. FLASH0 also accepts the names without `-0`. Passing a file for an unsupported region is an error.
-
-P.S. You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to run it without installation.
 
 # Real world example
 Let's assume you have a fullflash. Of course, simply running commands from the examples won't work. :)
