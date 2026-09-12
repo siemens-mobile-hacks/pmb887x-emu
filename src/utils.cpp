@@ -1,8 +1,12 @@
 #include "utils.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <numeric>
+#include <random>
 #include <stdexcept>
 
 #ifdef _WIN32
@@ -23,6 +27,10 @@
 #else
 #include <spawn.h>
 #include <sys/wait.h>
+#endif
+
+#ifdef __linux__
+#include <sys/mman.h>
 #endif
 
 #if defined(__APPLE__) || defined(__MACH__)
@@ -146,4 +154,132 @@ std::string convertESNtoOTP(const std::string &esn) {
 	}
 
 	return "0200" + otpEsn + "00000000";
+}
+
+std::string esnToHex(uint32_t esn) {
+	const char hex[] = "0123456789ABCDEF";
+	std::string out;
+	for (int shift = 28; shift >= 0; shift -= 4)
+		out += hex[(esn >> shift) & 0xF];
+	return out;
+}
+
+std::string esnCachePath(const std::string &fullflash) {
+	return fullflash + ".esn";
+}
+
+bool readEsnCache(const std::string &fullflash, const std::string &imei, const std::string &key, uint32_t &esn) {
+	std::ifstream in(esnCachePath(fullflash));
+	if (!in)
+		return false;
+
+	std::string line, cachedImei, cachedKey, value;
+	while (std::getline(in, line)) {
+		if (line.starts_with("IMEI="))
+			cachedImei = line.substr(5);
+		else if (line.starts_with("KEY="))
+			cachedKey = line.substr(4);
+		else if (line.starts_with("ESN="))
+			value = line.substr(4);
+	}
+
+	const bool valid = value.size() == 8 && std::all_of(value.begin(), value.end(), [](uint8_t c) { return std::isxdigit(c); });
+	if (!valid || cachedImei != imei || cachedKey != key)
+		return false;
+
+	esn = static_cast<uint32_t>(std::stoul(value, nullptr, 16));
+	return true;
+}
+
+// Caching is best effort: a read-only directory just means the search runs again next time.
+void writeEsnCache(const std::string &fullflash, const std::string &imei, const std::string &key, uint32_t esn) {
+	std::ofstream out(esnCachePath(fullflash), std::ios::trunc);
+	if (!out)
+		return;
+	out << "# ESN recovered by pmb887x-emu, delete this file to search again\n"
+		<< "IMEI=" << imei << "\n"
+		<< "KEY=" << key << "\n"
+		<< "ESN=" << esnToHex(esn) << "\n";
+}
+
+bool readFile(const std::string &path, std::vector<uint8_t> &data) {
+	std::ifstream in(path, std::ios::binary | std::ios::ate);
+	if (!in)
+		return false;
+	std::streamsize size = in.tellg();
+	if (size < 0)
+		return false;
+	data.resize(static_cast<size_t>(size));
+	in.seekg(0);
+	return static_cast<bool>(in.read(reinterpret_cast<char *>(data.data()), size));
+}
+
+bool writeFile(const std::string &path, const std::vector<uint8_t> &data) {
+	std::ofstream out(path, std::ios::binary | std::ios::trunc);
+	if (!out)
+		return false;
+	return static_cast<bool>(out.write(reinterpret_cast<const char *>(data.data()), static_cast<std::streamsize>(data.size())));
+}
+
+TempFileCopy::~TempFileCopy() {
+#ifdef __linux__
+	if (fd >= 0)
+		close(fd);
+#endif
+	if (isTempFile) {
+		std::error_code ec;
+		std::filesystem::remove(filePath, ec);
+	}
+}
+
+bool TempFileCopy::create(const std::vector<uint8_t> &data) {
+#ifdef __linux__
+	// The descriptor is inherited by QEMU, which opens it again through /dev/fd.
+	fd = memfd_create("pmb887x-emu", 0);
+	if (fd >= 0) {
+		size_t done = 0;
+		while (done < data.size()) {
+			ssize_t written = write(fd, data.data() + done, data.size() - done);
+			if (written <= 0) {
+				close(fd);
+				fd = -1;
+				break;
+			}
+			done += static_cast<size_t>(written);
+		}
+		if (fd >= 0) {
+			filePath = "/dev/fd/" + std::to_string(fd);
+			return true;
+		}
+	}
+#endif
+
+	std::random_device rd;
+	std::error_code ec;
+	std::filesystem::path dir = std::filesystem::temp_directory_path(ec);
+	if (ec)
+		return false;
+	filePath = (dir / ("pmb887x-emu-" + std::to_string(rd()) + ".bin")).string();
+	if (!writeFile(filePath, data))
+		return false;
+	isTempFile = true;
+	return true;
+}
+
+// Writes back only the 4 KB chunks that differ from the original content.
+bool patchFile(const std::string &path, const std::vector<uint8_t> &original, const std::vector<uint8_t> &data) {
+	constexpr size_t chunk = 4096;
+	std::fstream out(path, std::ios::binary | std::ios::in | std::ios::out);
+	if (!out || original.size() != data.size())
+		return false;
+	for (size_t offset = 0; offset < data.size(); offset += chunk) {
+		size_t size = std::min(chunk, data.size() - offset);
+		if (memcmp(&original[offset], &data[offset], size) == 0)
+			continue;
+		out.seekp(static_cast<std::streamoff>(offset));
+		if (!out.write(reinterpret_cast<const char *>(&data[offset]), static_cast<std::streamsize>(size)))
+			return false;
+	}
+	out.flush();
+	return static_cast<bool>(out);
 }

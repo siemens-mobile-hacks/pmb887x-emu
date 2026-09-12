@@ -24,7 +24,7 @@ You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to r
 
 # Usage
 ```
-Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--flash-otp0-file VAR] [--flash-otp1-file VAR] [--flash-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
+Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--flash-otp0-file VAR] [--flash-otp1-file VAR] [--flash-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--siemens-recover-esn] [--siemens-no-recalc] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
 Generic emulator for PMB887X-based mobile phones.
 
@@ -45,6 +45,8 @@ OTP options (detailed usage):
   --flash-efa-file              Raw NOR flash EFA file [nargs=0..1] [default: ""]
   --siemens-esn                 Siemens flash ESN (HEX) [nargs=0..1] [default: ""]
   --siemens-imei                Siemens flash IMEI (number) [nargs=0..1] [default: ""]
+  --siemens-recover-esn         Recover the original ESN of the fullflash by brute force instead of recalculating its keys
+  --siemens-no-recalc           Do not recalculate the fullflash security keys in memory for the emulator IMEI/ESN
 
 SIM options (detailed usage):
   --sim                         SIM source: virtual, none, or reader [nargs=0..1] [default: "virtual"]
@@ -100,23 +102,26 @@ Files are created on the first successful data change. A missing or empty file u
 Use `--flash-N-otp0-file`, `--flash-N-otp1-file` and `--flash-N-efa-file` to override paths for banks 0-3. FLASH0 also accepts the names without `-0`. Passing a file for an unsupported region is an error.
 
 # Real world example
-Let's assume you have a fullflash. Of course, simply running commands from the examples won't work. :)
+Let's assume you have a fullflash. Siemens mobile devices are paranoid and the firmware has hardware binding:
+the keys stored in the fullflash must match the ESN and IMEI of the phone.
 
-That's because Siemens mobile devices are paranoid and the firmware has hardware binding.
+The emulator handles this for you: on every start of a Siemens board it recalculates the keys for the emulator
+ESN/IMEI **in memory** (the fullflash file is not modified), so this simply works:
+```
+pmb887x-emu --fullflash EL71.bin --device siemens-el71
+```
 
-You have two options:
+Alternatively `--siemens-recover-esn` searches for the original ESN of the fullflash and runs it untouched.
+The result is saved next to the fullflash as a `.esn` file, and while that file matches, the recovered ESN is used
+automatically on the next runs without `--siemens-recover-esn`.
 
-1. Recalculate keys in the firmware using the following steps: [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md)
-   
-   Then run the emulator like this:
-   ```
-   pmb887x-emu --fullflash EL71.bin --device siemens-el71
-   ```
+Details and how to disable the recalculation (`--siemens-no-recalc`): [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md).
+The algorithm itself is described in [docs/recalc-alogrithm.md](docs/recalc-alogrithm.md).
 
-2. Find the original ESN and IMEI from your phone and run the emulator like this:
-   ```
-   pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
-   ```
+If you know the original ESN and IMEI of your phone, you can run the emulator with them and nothing needs to be recalculated:
+```
+pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
+```
 
 LG phones do not need ESN/IMEI, but they need a provisioned EFA region to work correctly (though not strictly required to boot) - commonly seen as separate 32K `.eep` image (unencrypted, a valid one should begin with `FF` bytes and contain model/version info around 0x72A0) or appended as 32K tail at the end of a `.bin` dump.
 

@@ -28,7 +28,7 @@ configure_file("src/config.h.in" "config.h" @ONLY)
 
 add_subdirectory(third_party/argparse)
 
-add_executable(emu src/main.cpp src/utils.cpp)
+add_executable(emu src/main.cpp src/utils.cpp src/siemens_recalc.cpp)
 set_target_properties(emu PROPERTIES OUTPUT_NAME "pmb887x-emu")
 target_include_directories(emu PRIVATE "${CMAKE_BINARY_DIR}")
 install(TARGETS emu RUNTIME DESTINATION bin)

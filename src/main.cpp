@@ -4,8 +4,11 @@
 #include <array>
 #include <cctype>
 #include <cstdint>
+#include <chrono>
 #include <cstdlib>
+#include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -13,11 +16,13 @@
 #include <vector>
 
 #include "config.h"
+#include "siemens_recalc.h"
 #include "utils.h"
 
 static std::string getBoardConfig(const std::string &device);
 static std::string getQemuBin();
 static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode);
+static std::string identityKey(const SiemensIdentity &identity);
 
 struct FlashBankOptions {
 	std::string otp0;
@@ -113,6 +118,16 @@ int main(int argc, char *argv[]) {
 		.help("Siemens flash IMEI (number)")
 		.nargs(1)
 		.default_value("");
+
+	program.add_argument("--siemens-recover-esn")
+		.help("Recover the original ESN of the fullflash by brute force instead of recalculating its keys")
+		.default_value(false)
+		.implicit_value(true);
+
+	program.add_argument("--siemens-no-recalc")
+		.help("Do not recalculate the fullflash security keys in memory for the emulator IMEI/ESN")
+		.default_value(false)
+		.implicit_value(true);
 
 	program.add_group("SIM options");
 
@@ -219,6 +234,7 @@ int main(int argc, char *argv[]) {
 	auto device = program.get<std::string>("--device");
 	auto siemensEsn = program.get<std::string>("--siemens-esn");
 	auto siemensImei = program.get<std::string>("--siemens-imei");
+	const bool recoverEsn = program.get<bool>("--siemens-recover-esn");
 	auto fullflash = program.get<std::string>("--fullflash");
 	auto sim = program.get<std::string>("--sim");
 #if HAVE_SIM_READER
@@ -259,6 +275,13 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 	}
+	if (recoverEsn && (program.is_used("--siemens-esn") || program.is_used("--siemens-imei"))) {
+		std::cerr << "--siemens-recover-esn reads the IMEI and ESN from the fullflash, "
+			<< "so it can't be combined with --siemens-esn or --siemens-imei\n";
+		return 1;
+	}
+
+	const bool siemensBoard = device.starts_with("siemens-");
 
 	qemuEnv["PMB887X_BOARD"] = getBoardConfig(device);
 	qemuEnv["PMB887X_STARTUP"] = startup;
@@ -290,16 +313,139 @@ int main(int argc, char *argv[]) {
 	}
 
 	FlashBankOptions &flash0 = flashOptions[0];
+
+	// A fullflash from a real phone is already consistent with the ESN of that phone. Instead of
+	// rewriting its keys we can search for the ESN they were built from and present that to the firmware.
+	bool esnRecovered = false;
+	// A previously recovered ESN is a better match for the fullflash than recalculated keys, so an
+	// existing cache file is used automatically unless the identity was given on the command line.
+	const bool identityGiven = program.is_used("--siemens-esn") || program.is_used("--siemens-imei") ||
+		!flash0.otp0.empty() || !flash0.otp1.empty();
+	std::error_code esnCacheEc;
+	const bool esnCached = !fullflash.empty() && std::filesystem::exists(esnCachePath(fullflash), esnCacheEc);
+	if (siemensBoard && (recoverEsn || (esnCached && !identityGiven))) {
+		if (!flash0.otp0.empty() || !flash0.otp1.empty()) {
+			std::cerr << "--siemens-recover-esn can't be combined with raw OTP data\n";
+			return 1;
+		}
+		std::vector<uint8_t> data;
+		if (!readFile(fullflash, data)) {
+			std::cerr << "Can't read fullflash: " << fullflash << "\n";
+			return 1;
+		}
+
+		SiemensIdentity identity = siemensReadIdentity(data);
+		if (!identity.ok && recoverEsn) {
+			std::cerr << "Can't read the IMEI and keys from this fullflash, so the ESN can't be recovered.\n"
+				<< "Run without --siemens-recover-esn to recalculate the keys instead.\n";
+			return 1;
+		}
+
+		uint32_t esn = 0;
+		bool haveEsn = identity.ok && readEsnCache(fullflash, identity.imei, identityKey(identity), esn);
+		if (haveEsn) {
+			std::cout << "[esn] Using ESN " << esnToHex(esn) << " cached in " << esnCachePath(fullflash) << "\n";
+		} else if (recoverEsn) {
+			std::cout << "[esn] Searching for the ESN of IMEI " << identity.imei << " (up to 2^32 keys, this can take a while)...\n";
+			std::cout.flush();
+
+			const auto started = std::chrono::steady_clock::now();
+			if (!siemensRecoverEsn(identity, esn)) {
+				std::cerr << "ESN not found, the keys in this fullflash are inconsistent.\n"
+					<< "Run without --siemens-recover-esn to recalculate them instead.\n";
+				return 1;
+			}
+
+			const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+				std::chrono::steady_clock::now() - started).count();
+			std::cout << "[esn] Recovered ESN " << esnToHex(esn) << " in " << elapsed << " s\n";
+			writeEsnCache(fullflash, identity.imei, identityKey(identity), esn);
+			haveEsn = true;
+		} else {
+			// The cache is stale (different fullflash identity), fall back to recalculation.
+			std::cout << "[esn] " << esnCachePath(fullflash) << " doesn't match this fullflash, recalculating the keys instead\n";
+		}
+
+		if (haveEsn) {
+			siemensEsn = esnToHex(esn);
+			siemensImei = identity.imei;
+			esnRecovered = true;
+		}
+	}
+
 	// Default emulator IMEI & ESN for FLASH0
-	if (device.starts_with("siemens-") && siemensEsn.empty() && flash0.otp0.empty())
+	if (siemensBoard && siemensEsn.empty() && flash0.otp0.empty())
 		siemensEsn = "12345678";
-	if (device.starts_with("siemens-") && siemensImei.empty() && flash0.otp1.empty())
+	if (siemensBoard && siemensImei.empty() && flash0.otp1.empty())
 		siemensImei = "490154203237518"; // Nokia *trollface*
 
 	if (flash0.otp0.empty() && !siemensEsn.empty())
 		flash0.otp0 = convertESNtoOTP(siemensEsn);
 	if (flash0.otp1.empty() && !siemensImei.empty())
 		flash0.otp1 = convertIMEItoOTP(siemensImei);
+
+	// Siemens firmware binds itself to the ESN/IMEI with keys stored in the bootcore and EEPROM.
+	// Recalculate them in memory for the emulator identity unless disabled.
+	const bool rw = program.get<bool>("--rw");
+	const bool recalcEnabled = siemensBoard && !esnRecovered && !program.get<bool>("--siemens-no-recalc");
+	std::string qemuFullflash = fullflash;
+	TempFileCopy fullflashCopy;
+	if (recalcEnabled) {
+		if (siemensImei.size() != 15 || siemensEsn.size() != 8) {
+			std::cout << "[recalc] IMEI or ESN is unknown (raw OTP data was given), fullflash keys are not recalculated\n";
+		} else {
+			std::vector<uint8_t> data;
+			if (!readFile(fullflash, data)) {
+				std::cerr << "Can't read fullflash: " << fullflash << "\n";
+				return 1;
+			}
+
+			SiemensKeys keys;
+			keys.imei = siemensImei;
+			keys.esn = static_cast<uint32_t>(std::stoul(siemensEsn, nullptr, 16));
+			// Only consistency matters for the emulator, so the PapuaUtils defaults are used.
+			keys.skey = 12345678;
+			keys.masterKeys.fill(12345678);
+
+			const std::vector<uint8_t> original = rw ? data : std::vector<uint8_t>();
+			SiemensRecalcResult result = siemensRecalcFullflash(data, keys);
+			for (const auto &line : result.log)
+				std::cout << "[recalc] " << line << "\n";
+
+			if (!result.structureOk) {
+				std::cout << "[recalc] Fullflash structure was not recognized, running it as is\n";
+			} else if (result.replaced == 0) {
+				std::cout << "[recalc] Fullflash keys already match IMEI " << keys.imei << " and ESN " << siemensEsn << "\n";
+			} else if (rw) {
+				// In write mode the fullflash on disk is the phone's flash, so recalculate it in place.
+				if (!patchFile(fullflash, original, data)) {
+					std::cerr << "Can't write recalculated keys to " << fullflash << "\n";
+					return 1;
+				}
+				std::cout << "[recalc] Fullflash keys recalculated in " << fullflash << " for IMEI " << keys.imei << " and ESN " << siemensEsn
+					<< (result.complete ? "" : " (some EEPROM blocks were not found)") << "\n";
+			} else {
+				if (!fullflashCopy.create(data)) {
+					std::cerr << "Can't create an in-memory copy of the fullflash\n";
+					return 1;
+				}
+				qemuFullflash = fullflashCopy.path();
+				std::cout << "[recalc] Fullflash keys recalculated in memory for IMEI " << keys.imei << " and ESN " << siemensEsn
+					<< (result.complete ? "" : " (some EEPROM blocks were not found)") << "\n";
+
+				// QEMU derives the OTP/EFA side files from the fullflash name, keep them next to the original file.
+				auto keepSideFile = [&](std::string &option, const char *suffix) {
+					std::error_code ec;
+					if (option.empty() && std::filesystem::exists(fullflash + suffix, ec))
+						option = fullflash + suffix;
+				};
+				keepSideFile(flash0.otp0File, ".cfi-otp0");
+				keepSideFile(flash0.otp1File, ".cfi-otp1");
+				keepSideFile(flash0.efaFile, ".cfi-efa");
+			}
+		}
+	}
+
 	for (size_t index = 0; index < FLASH_BANK_COUNT; index++) {
 		const FlashBankOptions &options = flashOptions[index];
 		const std::string prefix = "PMB887X_FLASH" + std::to_string(index) + "_";
@@ -327,13 +473,13 @@ int main(int argc, char *argv[]) {
 	qemuArgs.emplace_back("-machine");
 	qemuArgs.emplace_back("pmb887x");
 
-	if (program.get<bool>("--rw")) {
+	if (rw) {
 		std::cout << "Write mode enabled! Your fullflash will be modified!\n";
 		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,format=raw,file=" + fullflash);
+		qemuArgs.emplace_back("if=pflash,format=raw,file=" + qemuFullflash);
 	} else {
 		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + fullflash);
+		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + qemuFullflash);
 	}
 
 	if (program.present("--trace"))
@@ -427,6 +573,11 @@ static std::string getBoardConfig(const std::string &device) {
 	throw std::runtime_error("QEMU configuration file not found: " + device);
 
 	return "";
+}
+
+// The cache is tied to the keys it was recovered from, so it is dropped when the fullflash changes.
+static std::string identityKey(const SiemensIdentity &identity) {
+	return identity.hasBootKey ? toHex(identity.bootKey.data(), 16) : toHex(identity.hash.data(), 16);
 }
 
 static std::string getQemuBin() {
