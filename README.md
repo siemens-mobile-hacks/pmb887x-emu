@@ -24,67 +24,84 @@ You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to r
 
 # Usage
 ```
-Usage: pmb887x-emu [--help] [--version] --device VAR --fullflash VAR [--rw] [--flash-otp0 VAR] [--flash-otp1 VAR] [--flash-otp0-file VAR] [--flash-otp1-file VAR] [--flash-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--siemens-recover-esn] [--siemens-no-recalc] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
+Usage: pmb887x-emu [--help] [--version] [--device VAR] --fullflash VAR [--rw] [--flash-0-otp0 VAR] [--flash-0-otp1 VAR] [--flash-0-otp0-file VAR] [--flash-0-otp1-file VAR] [--flash-0-efa-file VAR] [--flash-1-otp0 VAR] [--flash-1-otp1 VAR] [--flash-1-otp0-file VAR] [--flash-1-otp1-file VAR] [--flash-1-efa-file VAR] [--flash-2-otp0 VAR] [--flash-2-otp1 VAR] [--flash-2-otp0-file VAR] [--flash-2-otp1-file VAR] [--flash-2-efa-file VAR] [--flash-3-otp0 VAR] [--flash-3-otp1 VAR] [--flash-3-otp0-file VAR] [--flash-3-otp1-file VAR] [--flash-3-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--siemens-recalc] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
 Generic emulator for PMB887X-based mobile phones.
 
 Optional arguments:
-  -h, --help                    shows help message and exits 
-  -v, --version                 prints version information and exits 
+  -h, --help                              shows help message and exits
+  -v, --version                           prints version information and exits
 
 Main options (detailed usage):
-  -d, --device                  Device name or path to custom device.cfg file [required]
-  -f, --fullflash               Path to the fullflash.bin file [required]
-  --rw                          Allow writing to fullflash.bin (dangerous!) 
+  -d, --device                            Device name or path to a custom board TOML file (detected for Siemens fullflashes by default) [nargs=0..1] [default: ""]
+  -f, --fullflash                         Path to the fullflash.bin file [required]
+  --rw                                    Allow writing to fullflash.bin (dangerous!)
 
 OTP options (detailed usage):
-  --flash-otp0                  Raw NOR flash otp0 value in HEX (with lock bits) [nargs=0..1] [default: ""]
-  --flash-otp1                  Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
-  --flash-otp0-file             Raw NOR flash OTP0 file [nargs=0..1] [default: ""]
-  --flash-otp1-file             Raw NOR flash OTP1 file [nargs=0..1] [default: ""]
-  --flash-efa-file              Raw NOR flash EFA file [nargs=0..1] [default: ""]
-  --siemens-esn                 Siemens flash ESN (HEX) [nargs=0..1] [default: ""]
-  --siemens-imei                Siemens flash IMEI (number) [nargs=0..1] [default: ""]
-  --siemens-recover-esn         Recover the original ESN of the fullflash by brute force instead of recalculating its keys
-  --siemens-no-recalc           Do not recalculate the fullflash security keys in memory for the emulator IMEI/ESN
+  --flash-otp0, --flash-0-otp0            Raw NOR flash otp0 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-otp1, --flash-0-otp1            Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-otp0-file, --flash-0-otp0-file  Raw NOR flash OTP0 file [nargs=0..1] [default: ""]
+  --flash-otp1-file, --flash-0-otp1-file  Raw NOR flash OTP1 file [nargs=0..1] [default: ""]
+  --flash-efa-file, --flash-0-efa-file    Raw NOR flash EFA file [nargs=0..1] [default: ""]
+  --flash-1-otp0                          Raw NOR flash otp0 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-1-otp1                          Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-1-otp0-file                     Raw NOR flash OTP0 file [nargs=0..1] [default: ""]
+  --flash-1-otp1-file                     Raw NOR flash OTP1 file [nargs=0..1] [default: ""]
+  --flash-1-efa-file                      Raw NOR flash EFA file [nargs=0..1] [default: ""]
+  --flash-2-otp0                          Raw NOR flash otp0 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-2-otp1                          Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-2-otp0-file                     Raw NOR flash OTP0 file [nargs=0..1] [default: ""]
+  --flash-2-otp1-file                     Raw NOR flash OTP1 file [nargs=0..1] [default: ""]
+  --flash-2-efa-file                      Raw NOR flash EFA file [nargs=0..1] [default: ""]
+  --flash-3-otp0                          Raw NOR flash otp0 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-3-otp1                          Raw NOR flash otp1 value in HEX (with lock bits) [nargs=0..1] [default: ""]
+  --flash-3-otp0-file                     Raw NOR flash OTP0 file [nargs=0..1] [default: ""]
+  --flash-3-otp1-file                     Raw NOR flash OTP1 file [nargs=0..1] [default: ""]
+  --flash-3-efa-file                      Raw NOR flash EFA file [nargs=0..1] [default: ""]
+  --siemens-esn                           Siemens flash ESN (HEX) [nargs=0..1] [default: "12345678"]
+  --siemens-imei                          Siemens flash IMEI (number) [nargs=0..1] [default: "490154203237518"]
+  --siemens-recalc                        Recalculate the fullflash security keys instead of recovering its original OTP
 
 SIM options (detailed usage):
-  --sim                         SIM source: virtual, none, or reader [nargs=0..1] [default: "virtual"]
-  --sim-reader-name             Exact PC/SC reader name for --sim reader (uses the first reader with a card by default) [nargs=0..1] [default: ""]
-  --sim-imsi                    Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default) [nargs=0..1] [default: ""]
-  --sim-operator                Virtual SIM operator code as MCC+MNC (5 or 6 decimal digits) [nargs=0..1] [default: "00101"]
+  --sim                                   SIM source: virtual, none, or reader [nargs=0..1] [default: "virtual"]
+  --sim-reader-name                       Exact PC/SC reader name for --sim reader (uses the first reader with a card by default) [nargs=0..1] [default: ""]
+  --sim-imsi                              Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default) [nargs=0..1] [default: ""]
+  --sim-operator                          Virtual SIM operator code as MCC+MNC (5 or 6 decimal digits) [nargs=0..1] [default: "00101"]
 
 Startup options (detailed usage):
-  --startup                     Startup scenario from the board config [nargs=0..1] [default: "ONLINE"]
+  --startup                               Startup scenario from the board config [nargs=0..1] [default: "ONLINE"]
 
 Serial options (detailed usage):
-  --serial                      Connect host serial port to QEMU 
-  --usartd                      Connect to usartd.pl in QEMU 
-  -W, --wait-for-serial         Wait for first byte on serial port 
+  --serial                                Connect host serial port to QEMU
+  --usartd                                Connect to usartd.pl in QEMU
+  -W, --wait-for-serial                   Wait for first byte on serial port
 
 Trace options (detailed usage):
-  --gdb                         Run firmware with GDB 
-  -D, --trace                   CPU IO + CPU emulation log 
-  --trace-io                    I/O tracing
-  --trace-log                   CPU emulation logs only 
+  --gdb                                   Run firmware with GDB
+  -D, --trace                             CPU IO + CPU emulation log
+  --trace-io                              I/O tracing
+  --trace-log                             CPU emulation logs only
 
 QEMU options (detailed usage):
-  --qemu-monitor                QEMU monitor 
-  --qemu-run-with-gdb           Run emulator using GDB (debug) 
-  -E, --qemu-stop-on-exception  Stop QEMU on ARM exception 
-  --qemu-debug                  QEMU debug options
+  --qemu-monitor                          QEMU monitor
+  --qemu-run-with-gdb                     Run emulator using GDB (debug)
+  -E, --qemu-stop-on-exception            Stop QEMU on ARM exception
+  --qemu-debug                            QEMU debug options
 ```
 
 **Some useful examples:**
 
-1. Running fullflash with default emulator OTP
+1. Running a Siemens fullflash with automatic OTP recovery
 ```
-pmb887x-emu --fullflash EL71.bin --device siemens-el71
+pmb887x-emu --fullflash EL71.bin
 ```
+
+The device is detected from Siemens fullflash metadata. Use `--device` explicitly for other vendors, custom board files,
+or to override the detected device.
 
 2. Running fullflash with your own ESN and IMEI
 ```
-pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
+pmb887x-emu --fullflash EL71.bin --siemens-esn=12345678 --siemens-imei=490154203237518
 ```
 
 # OTP and EFA
@@ -105,22 +122,22 @@ Use `--flash-N-otp0-file`, `--flash-N-otp1-file` and `--flash-N-efa-file` to ove
 Let's assume you have a fullflash. Siemens mobile devices are paranoid and the firmware has hardware binding:
 the keys stored in the fullflash must match the ESN and IMEI of the phone.
 
-The emulator handles this for you: on every start of a Siemens board it recalculates the keys for the emulator
-ESN/IMEI **in memory** (the fullflash file is not modified), so this simply works:
+The emulator handles this for you: by default it recovers the original OTP from the fullflash and caches the ESN,
+so this simply works:
 ```
-pmb887x-emu --fullflash EL71.bin --device siemens-el71
+pmb887x-emu --fullflash EL71.bin
 ```
 
-Alternatively `--siemens-recover-esn` searches for the original ESN of the fullflash and runs it untouched.
-The result is saved next to the fullflash as a `.esn` file, and while that file matches, the recovered ESN is used
-automatically on the next runs without `--siemens-recover-esn`.
+The result and available identity data are saved as TOML next to the fullflash in a `.esn` file.
+The cached ESN is reused while its `HASH` matches the fullflash.
 
-Details and how to disable the recalculation (`--siemens-no-recalc`): [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md).
-The algorithm itself is described in [docs/recalc-alogrithm.md](docs/recalc-alogrithm.md).
+Use `--siemens-recalc` to recalculate the keys for the emulator identity instead.
+Details: [docs/recalc-siemens-fullflash.md](docs/recalc-siemens-fullflash.md).
+The algorithm itself is described in [docs/recalc-algorithm.md](docs/recalc-algorithm.md).
 
 If you know the original ESN and IMEI of your phone, you can run the emulator with them and nothing needs to be recalculated:
 ```
-pmb887x-emu --fullflash EL71.bin --device siemens-el71 --siemens-esn=12345678 --siemens-imei=490154203237518
+pmb887x-emu --fullflash EL71.bin --siemens-esn=12345678 --siemens-imei=490154203237518
 ```
 
 LG phones do not need ESN/IMEI, but they need a provisioned EFA region to work correctly (though not strictly required to boot) - commonly seen as separate 32K `.eep` image (unencrypted, a valid one should begin with `FF` bytes and contain model/version info around 0x72A0) or appended as 32K tail at the end of a `.bin` dump.

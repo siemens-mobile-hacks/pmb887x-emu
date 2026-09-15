@@ -1,10 +1,9 @@
 # Siemens fullflash key recalculation algorithm
 
 This document describes what "Recalc Fullflash" in **x65PapuaUtils v1.1.1c** (by a1ex) actually
-does to a fullflash. The algorithm was
-re-implemented in `src/siemens_recalc.cpp`. The emulator applies it in memory on every start
-(see [recalc-siemens-fullflash.md](recalc-siemens-fullflash.md)), so a stock fullflash can be
-used without preparing it first.
+does to a fullflash. The algorithm was re-implemented in `src/siemens/recalc.cpp`. The emulator
+applies it when `--siemens-recalc` is requested (see
+[recalc-siemens-fullflash.md](recalc-siemens-fullflash.md)).
 
 The implementation was verified against fullflashes recalculated by the original tool:
 for the same IMEI / ESN / SKEY the output is byte-identical (S75 x75, EL71 x85).
@@ -15,8 +14,8 @@ All multi-byte integers below are little-endian.
 
 | Input | Meaning | Emulator default |
 |-------|---------|------------------|
-| IMEI  | 15 decimal digits | `490154203237518` (`--siemens-imei`) |
-| ESN   | 32-bit NOR flash serial number, given as 8 hex digits | `12345678` (`--siemens-esn`) |
+| IMEI  | 15 decimal digits | `490154203237518` |
+| ESN   | 32-bit NOR flash serial number, given as 8 hex digits | `12345678` |
 | SKEY  | "service key", up to 8 **decimal** digits, used as a 32-bit integer | `12345678` (fixed) |
 | Master codes | six 32-bit integers, the phone master codes | `12345678` each (PapuaUtils default) |
 | VerDown | one byte stored in EEPROM block 52, the "VerDown" setting of PapuaUtils | `1` |
@@ -24,7 +23,7 @@ All multi-byte integers below are little-endian.
 Note that ESN is parsed as **hex** (`$12345678`) while SKEY is parsed as **decimal**
 (`12345678` = `0x00BC614E`).
 
-## 2. Key derivation: BootKey (BKEY) and HASH
+## 2. Key derivation: BKEY and HASH
 
 ```
 block[0..3]  = ESN  (u32 LE)
@@ -43,11 +42,11 @@ BKEY `2062670E09537A7FE079462A0EC98168`, HASH `54F80AC12ACD94B2F5CFFB9BF7E4D493`
 
 ## 3. Fullflash layout detection
 
-The file must be 32, 64 or 96 MB. Two generations exist:
+The bootcore must contain magic `43 4A 4B 54` at `0x3C` and a supported interface header:
 
 | | x65 / x75 (SGold) | x85 (SGold2: EL71, E71, M81, S68, C81, ...) |
 |---|---|---|
-| Detection | otherwise | `u32 @ 0x1200 == 0x534C0300` (bytes `00 03 4C 53`) |
+| Detection | `00 02 4C 53` or `02 02 4C 53` at `0x200` | `00 03 4C 53` at `0x1200` |
 | Erase block size | 0x20000 | 0x40000 |
 | Block signature offset | 0 | 0x3FFE0 (end of the block) |
 | EEPROM header stride | 0x10 | 0x20 |
@@ -72,25 +71,24 @@ Two values are replaced in block 0:
 | Layout | HASH (16 bytes) | IMEI (15 ASCII digits) |
 |--------|-----------------|------------------------|
 | x85 | 0x3E400 | 0x3E410 |
-| x65/x75, `byte @ 0x200 == 2` | 0x23C | 0x660 |
-| x65/x75, other bootcore version | 0x238 | 0x65C |
+| x65/x75, interface version 2.2 | 0x23C | 0x660 |
+| x65/x75, interface version 2.0 | 0x238 | 0x65C |
 
-If the HASH location (or, on x65/x75, the words at 0x204/0x660/0xA90/0x238) reads `FFFFFFFF`
-the bootcore is "cleared" and recalculation is impossible.
+If all 16 bytes at the HASH location are `FF`, the bootcore is "cleared" and recalculation
+is impossible.
 
 ## 5. EEPROM structure
 
-Every EEPROM block has a table of 16-byte entry headers growing **downwards** from the top
-of the block (x65/x75: first header at 0x1FFF0, x85: at 0x3FFC0). Scanning stops when a
-header starts with `FFFFFFFF` or the offset drops to 0x2000.
+Every EEPROM partition has an entry table growing **downwards** from its header. Entries are
+16 bytes on x65/x75 and 32 bytes on x85. The first entry is at 0x1FFF0 on x65/x75 and 0x3FFC0
+on x85. A free entry ends the x65/x75 table; x85 scanning continues because inline data and
+unused physical entries can occur between valid entries.
 
 ```
 struct header {
-    u32 flags;       // 0xFFFFFFC0 = valid entry, 0xFFFFFF00 = deleted
-    u16 id;          // block id (< 500); FULL ids are reported as id + 5000
-    u8  zero;
-    u8  unused;
-    u32 size;        // stored size (< 25000)
+    u32 flags;       // 0xFFFFFFC0 = valid entry, 0xFFFFFF00 = obsolete
+    u32 id;          // x85 EELITE uses u16; IDs must be below 5000
+    u32 size;        // x85 EELITE uses u16
     u32 data_offset; // offset of the data inside the erase block
 };
 ```
@@ -101,13 +99,12 @@ Where the data lives:
 * **x85**: small entries (FULL: size <= 0x200, LITE: size <= 0x10) are stored *inline* right
   below the header: starting at `hdr - 0x10 - size - (size & ~0xF)`, in 16-byte pieces that
   skip every second 16-byte slot (bytes whose block offset has bit 4 set are not data).
-  Larger entries use `data_offset`. On x85 the headers may have gaps: after a valid header
-  the next one is searched downwards in 0x20 steps (up to 0x420 bytes).
+  Larger entries use `data_offset`. Every 0x20-byte header slot is examined.
 
 Stored size vs. payload:
 
-* EEFULL entries carry one extra byte **in front** of the payload (stored size = payload + 1,
-  payload starts at `data_offset + 1`); the leading byte is left as is.
+* EEFULL entries carry one metadata byte before the payload. Extended entries also carry five
+  trailing metadata bytes; all metadata is excluded from the exposed payload.
 * On x65/x75, EELITE entries carry one extra byte **after** the payload.
 * On x85, EELITE entries have no extra byte.
 
@@ -126,7 +123,7 @@ If a matched entry has an unexpected size it is reported and left alone.
 | FULL 77 (5077) | 0xE8 | encrypted record (see 7.3) | yes |
 | FULL 121 (5121) | 0x38 | encrypted SKEY marker + 6 encrypted master codes (see 7.4) | yes |
 | FULL 122 (5122) | 6 | `SKEY (u32)`, `58 00` | yes |
-| FULL 123 (5123) | 0xC or 0x20 | `3F FF FF FF` + first 8 bytes of block 121 (12-byte variant, x75/x85); `07 1F FF FF` + the same for the 0x20 variant of older x65 firmware (the remaining bytes are not changed) | yes |
+| FULL 123 (5123) | 0xC or 0x20 | `3F FF FF FF` + first 8 bytes of block 121 (12-byte variant, x75/x85); `07 1F FF FF` + the same followed by zeros (0x20-byte x65 variant) | yes |
 | LITE 52 | 0x122 | `BKEY (16)`, `VerDown (1)`, then a constant 145-byte tail starting `FF 01 00 00 01 03 00 01 00 01 00 54 00 55 00 80 00 D9 D9 F3 ...` and `FF` padding (see `BLOCK52_TAIL` in the source) | yes |
 | FULL 468 (5468) | 0x31 | `BKEY (16)`, `58`, `MD5(ESN u32)` (16), `MD5(IMEI ASCII)[0..8]`, `MD5(previous 0x29 bytes)[0..8]` | no (x85 only) |
 | LITE 320 | 0x10 | `BKEY` | no (x85 only) |
@@ -208,7 +205,7 @@ Block 77 (0xE8 bytes):
 ```
 u32 @0x00 = 0x56A05690, u32 @0x04 = 0, bytes 0x08..0xE8 = FF, byte @0x0B = 0
 u32 @0xE0 = 0x063DFF29, u32 @0xE4 = 0xF3800B06
-@0xE0 = sum8(bytes 0x08..0xE0), @0xE1 = xor8(bytes 0x08..0xE0)     # overwrites the two words above
+@0xE0 = sum8(bytes 0x08..0xE0), @0xE1 = xor8(bytes 0x08..0xE0)     # overwrites their first two bytes
 u32 @0x00 ^= 0xBA1FE5D7, u32 @0x04 ^= 0xD95D2DFD
 encrypt(all 0xE8 bytes, KEY_EEP)
 ```
@@ -226,12 +223,13 @@ for k in 0..5:
 
 ## 8. What the emulator does with it
 
-`pmb887x-emu` reads the fullflash, runs the algorithm for the emulator IMEI / ESN / SKEY and,
-if anything had to change, hands QEMU an in-memory copy (`memfd` on Linux, a temporary file
-elsewhere), so the file on disk is not modified. With `--rw` the keys are written into the file
-itself. Nothing is done when the keys already match.
+With `--siemens-recalc`, `pmb887x-emu` runs the algorithm with the defaults listed above.
+If anything changes, QEMU receives an in-memory copy (`memfd` on Linux, a temporary file elsewhere),
+so the file on disk is not modified. With `--rw` the recalculated data replaces the file itself.
+Recalculation and recovery are skipped when the BCORE HASH already equals the default recalculated
+HASH `54F80AC12ACD94B2F5CFFB9BF7E4D493`.
 
-The same relations run backwards: a fullflash stores the IMEI, the SKEY and the BootKey, so the only
-unknown in section 2 is the ESN. `--siemens-recover-esn` brute forces those 32 bits against the stored
-BootKey (or against the bootcore HASH when the BootKey is blank) and runs the fullflash unmodified with
+The same relations run backwards: a fullflash stores the IMEI, the SKEY and BKEY, so the only
+unknown in section 2 is the ESN. By default the emulator brute forces those 32 bits against the stored
+BKEY (or against the bootcore HASH when BKEY is blank) and runs the fullflash unmodified with
 the ESN it finds.

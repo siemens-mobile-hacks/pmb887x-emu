@@ -1,14 +1,12 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.16)
 
 project(pmb887x-emu C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-if (CMAKE_BUILD_TYPE MATCHES "Release")
-	set(INTERPROCEDURAL_OPTIMIZATION TRUE)
-endif()
-
 include(ExternalProject)
+include(CheckIPOSupported)
+include(CTest)
 include(GNUInstallDirs)
 
 execute_process(
@@ -18,19 +16,32 @@ execute_process(
 	OUTPUT_STRIP_TRAILING_WHITESPACE
 )
 
-if (CMAKE_SYSTEM_NAME STREQUAL "Windows" OR CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-	set(HAVE_SIM_READER 0)
-else()
-	set(HAVE_SIM_READER 1)
-endif()
-
 configure_file("src/config.h.in" "config.h" @ONLY)
 
 add_subdirectory(third_party/argparse)
+add_subdirectory(third_party/tomlplusplus)
+set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
+add_subdirectory(third_party/spdlog)
 
-add_executable(emu src/main.cpp src/utils.cpp src/siemens_recalc.cpp)
+add_executable(
+	emu
+	src/main.cpp
+	src/siemens/bruteforce.cpp
+	src/siemens/fullflash.cpp
+	src/crypto/md4.cpp
+	src/crypto/md5.cpp
+	src/siemens/crypto.cpp
+	src/siemens/eeprom.cpp
+	src/siemens/esn.cpp
+	src/siemens/otp.cpp
+	src/siemens/recalc.cpp
+	src/utils/file.cpp
+	src/utils/process.cpp
+	src/utils/string.cpp
+	src/utils/temp_file.cpp
+)
 set_target_properties(emu PROPERTIES OUTPUT_NAME "pmb887x-emu")
-target_include_directories(emu PRIVATE "${CMAKE_BINARY_DIR}")
+target_include_directories(emu PRIVATE "${CMAKE_BINARY_DIR}" "${CMAKE_SOURCE_DIR}/src")
 install(TARGETS emu RUNTIME DESTINATION bin)
 
 if (BUILD_STATIC)
@@ -38,11 +49,22 @@ if (BUILD_STATIC)
 endif()
 
 if (CMAKE_BUILD_TYPE MATCHES "Release")
+	check_ipo_supported(RESULT HAVE_IPO)
+	if (HAVE_IPO)
+		set_property(TARGET emu PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+	endif()
 	target_link_options(emu PUBLIC -s)
 endif()
 
-target_link_libraries(emu PUBLIC argparse)
+target_link_libraries(emu PUBLIC argparse spdlog::spdlog tomlplusplus::tomlplusplus)
 target_compile_options(emu PUBLIC -Wall -Wextra -Werror -O3)
+
+if (BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+	set(CATCH_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+	set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
+	add_subdirectory(third_party/catch2 EXCLUDE_FROM_ALL)
+	add_subdirectory(tests)
+endif()
 
 execute_process(COMMAND nproc OUTPUT_VARIABLE BUILD_THREADS)
 string(REGEX REPLACE "\n$" "" BUILD_THREADS "${BUILD_THREADS}")

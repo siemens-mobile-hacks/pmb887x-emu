@@ -1,14 +1,12 @@
 #include <argparse/argparse.hpp>
+#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <array>
 #include <cctype>
 #include <cstdint>
-#include <chrono>
 #include <cstdlib>
-#include <cstring>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <stdexcept>
 #include <string>
@@ -16,13 +14,17 @@
 #include <vector>
 
 #include "config.h"
-#include "siemens_recalc.h"
-#include "utils.h"
+#include "siemens/fullflash.h"
+#include "siemens/otp.h"
+#include "siemens/recalc.h"
+#include "utils/file.h"
+#include "utils/process.h"
+#include "utils/string.h"
+#include "utils/temp_file.h"
 
-static std::string getBoardConfig(const std::string &device);
-static std::string getQemuBin();
+static std::string getBoardConfigPath(const std::string &device);
+static std::string getQemuBinaryPath();
 static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode);
-static std::string identityKey(const SiemensIdentity &identity);
 
 struct FlashBankOptions {
 	std::string otp0;
@@ -32,21 +34,29 @@ struct FlashBankOptions {
 	std::string efaFile;
 };
 
+static constexpr char DEFAULT_IMEI[] = "490154203237518";
+static constexpr char DEFAULT_ESN[] = "12345678";
+
 static constexpr size_t SIM_IMSI_LENGTH = 15;
 static constexpr size_t SIM_OPERATOR_MIN_LENGTH = 5;
 static constexpr size_t SIM_OPERATOR_MAX_LENGTH = 6;
 static constexpr size_t FLASH_BANK_COUNT = 4;
 
 int main(int argc, char *argv[]) {
+	TempFileCopy fullflashCopy;
+
+	spdlog::set_pattern("[%H:%M:%S.%e] [%^%l%$] %v");
+	spdlog::flush_on(spdlog::level::info);
+
 	argparse::ArgumentParser program("pmb887x-emu", PROJECT_VERSION);
 	program.add_description("Generic emulator for PMB887X-based mobile phones.");
 
 	program.add_group("Main options");
 
 	program.add_argument("-d", "--device")
-		.help("Device name or path to custom device.cfg file")
-		.required()
-		.nargs(1);
+		.help("Device name or path to a custom board TOML file (detected for Siemens fullflashes by default)")
+		.nargs(1)
+		.default_value("");
 
 	program.add_argument("-f", "--fullflash")
 		.help("Path to the fullflash.bin file")
@@ -86,7 +96,7 @@ int main(int argc, char *argv[]) {
 		.default_value("");
 
 	for (size_t index = 1; index < FLASH_BANK_COUNT; index++) {
-		const std::string prefix = "--flash-" + std::to_string(index) + "-";
+		const auto prefix = "--flash-" + std::to_string(index) + "-";
 		program.add_argument(prefix + "otp0")
 			.help("Raw NOR flash otp0 value in HEX (with lock bits)")
 			.nargs(1)
@@ -112,40 +122,29 @@ int main(int argc, char *argv[]) {
 	program.add_argument("--siemens-esn")
 		.help("Siemens flash ESN (HEX)")
 		.nargs(1)
-		.default_value("");
+		.default_value(DEFAULT_ESN);
 
 	program.add_argument("--siemens-imei")
 		.help("Siemens flash IMEI (number)")
 		.nargs(1)
-		.default_value("");
+		.default_value(DEFAULT_IMEI);
 
-	program.add_argument("--siemens-recover-esn")
-		.help("Recover the original ESN of the fullflash by brute force instead of recalculating its keys")
-		.default_value(false)
-		.implicit_value(true);
-
-	program.add_argument("--siemens-no-recalc")
-		.help("Do not recalculate the fullflash security keys in memory for the emulator IMEI/ESN")
+	program.add_argument("--siemens-recalc")
+		.help("Recalculate the fullflash security keys instead of recovering its original OTP")
 		.default_value(false)
 		.implicit_value(true);
 
 	program.add_group("SIM options");
 
 	program.add_argument("--sim")
-#if HAVE_SIM_READER
 		.help("SIM source: virtual, none, or reader")
-#else
-		.help("SIM source: virtual or none")
-#endif
 		.nargs(1)
 		.default_value("virtual");
 
-#if HAVE_SIM_READER
 	program.add_argument("--sim-reader-name")
 		.help("Exact PC/SC reader name for --sim reader (uses the first reader with a card by default)")
 		.nargs(1)
 		.default_value("");
-#endif
 
 	program.add_argument("--sim-imsi")
 		.help("Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default)")
@@ -222,78 +221,80 @@ int main(int argc, char *argv[]) {
 	try {
 		program.parse_args(argc, argv);
 	} catch (const std::exception &err) {
-		std::cerr << err.what() << std::endl;
+		spdlog::error("{}", err.what());
 		std::cerr << program;
 		std::exit(1);
 	}
 
 	std::vector<std::string> qemuArgs;
 	std::unordered_map<std::string, std::string> qemuEnv;
-	auto qemuBin = getQemuBin();
+	std::string qemuBin;
+	try {
+		qemuBin = getQemuBinaryPath();
+	} catch (const std::exception &error) {
+		spdlog::error("{}", error.what());
+		return 1;
+	}
 
 	auto device = program.get<std::string>("--device");
 	auto siemensEsn = program.get<std::string>("--siemens-esn");
 	auto siemensImei = program.get<std::string>("--siemens-imei");
-	const bool recoverEsn = program.get<bool>("--siemens-recover-esn");
 	auto fullflash = program.get<std::string>("--fullflash");
 	auto sim = program.get<std::string>("--sim");
-#if HAVE_SIM_READER
 	auto simReaderName = program.get<std::string>("--sim-reader-name");
-#endif
 	auto simImsi = program.get<std::string>("--sim-imsi");
 	auto simOperator = program.get<std::string>("--sim-operator");
 	auto startup = program.get<std::string>("--startup");
+	bool rw = program.get<bool>("--rw");
 
-	if (sim.empty()) {
-		std::cerr << "--sim must not be empty\n";
-		return 1;
-	}
-#if HAVE_SIM_READER
 	if (sim != "virtual" && sim != "none" && sim != "reader") {
-		std::cerr << "--sim must be virtual, none, or reader\n";
+		spdlog::error("--sim must be virtual, none, or reader");
 		return 1;
 	}
+
 	if (!simReaderName.empty() && sim != "reader") {
-		std::cerr << "--sim-reader-name can only be used with --sim reader\n";
+		spdlog::error("--sim-reader-name can only be used with --sim reader");
 		return 1;
 	}
-#else
-	if (sim != "virtual" && sim != "none") {
-		std::cerr << "--sim must be virtual or none\n";
-		return 1;
-	}
-#endif
+
 	if (startup.empty()) {
-		std::cerr << "--startup must not be empty\n";
+		spdlog::error("--startup must not be empty");
 		return 1;
 	}
+
 	if (sim == "virtual") {
 		try {
 			validateSimIdentity(simImsi, simOperator);
 		} catch (const std::invalid_argument &err) {
-			std::cerr << err.what() << "\n";
+			spdlog::error("{}", err.what());
 			return 1;
 		}
 	}
-	if (recoverEsn && (program.is_used("--siemens-esn") || program.is_used("--siemens-imei"))) {
-		std::cerr << "--siemens-recover-esn reads the IMEI and ESN from the fullflash, "
-			<< "so it can't be combined with --siemens-esn or --siemens-imei\n";
-		return 1;
+
+	if (device.empty()) {
+		auto info = siemens::probeFullflash(fullflash);
+		if (!info) {
+			spdlog::error("Can't detect device from fullflash, specify --device");
+			return 1;
+		}
+		device = info->device;
+		spdlog::info("Detected device: {} ({} {})", device, info->vendor, info->model);
 	}
 
-	const bool siemensBoard = device.starts_with("siemens-");
-
-	qemuEnv["PMB887X_BOARD"] = getBoardConfig(device);
+	try {
+		qemuEnv["PMB887X_BOARD"] = getBoardConfigPath(device);
+	} catch (const std::exception &error) {
+		spdlog::error("{}", error.what());
+		return 1;
+	}
 	qemuEnv["PMB887X_STARTUP"] = startup;
 	qemuEnv["PMB887X_SIM"] = sim;
 	if (sim == "virtual") {
 		qemuEnv["PMB887X_SIM_OPERATOR"] = simOperator;
 		if (!simImsi.empty())
 			qemuEnv["PMB887X_SIM_IMSI"] = simImsi;
-#if HAVE_SIM_READER
 	} else if (!simReaderName.empty()) {
 		qemuEnv["PMB887X_SIM_READER_NAME"] = simReaderName;
-#endif
 	}
 
 	if (program.get<bool>("--qemu-stop-on-exception"))
@@ -302,153 +303,86 @@ int main(int argc, char *argv[]) {
 	if (program.get<bool>("--wait-for-serial"))
 		qemuEnv["PMB887X_WAIT_FOR_SERIAL"] = "1";
 
+	bool hasOTP = false;
 	std::array<FlashBankOptions, FLASH_BANK_COUNT> flashOptions;
 	for (size_t index = 0; index < FLASH_BANK_COUNT; index++) {
-		const std::string prefix = index == 0 ? "--flash-" : "--flash-" + std::to_string(index) + "-";
-		flashOptions[index].otp0 = program.get<std::string>(prefix + "otp0");
-		flashOptions[index].otp1 = program.get<std::string>(prefix + "otp1");
-		flashOptions[index].otp0File = program.get<std::string>(prefix + "otp0-file");
-		flashOptions[index].otp1File = program.get<std::string>(prefix + "otp1-file");
-		flashOptions[index].efaFile = program.get<std::string>(prefix + "efa-file");
+		const auto prefix = index == 0 ? "--flash-" : "--flash-" + std::to_string(index) + "-";
+		FlashBankOptions &opt = flashOptions[index];
+
+		opt.otp0 = program.get<std::string>(prefix + "otp0");
+		opt.otp1 = program.get<std::string>(prefix + "otp1");
+		opt.otp0File = program.get<std::string>(prefix + "otp0-file");
+		opt.otp1File = program.get<std::string>(prefix + "otp1-file");
+		opt.efaFile = program.get<std::string>(prefix + "efa-file");
+
+		if (!opt.otp0.empty() || !opt.otp1.empty())
+			hasOTP = true;
+		if (!opt.otp0File.empty() || !opt.otp1File.empty())
+			hasOTP = true;
+		if (!opt.efaFile.empty())
+			hasOTP = true;
 	}
 
-	FlashBankOptions &flash0 = flashOptions[0];
-
-	// A fullflash from a real phone is already consistent with the ESN of that phone. Instead of
-	// rewriting its keys we can search for the ESN they were built from and present that to the firmware.
-	bool esnRecovered = false;
-	// A previously recovered ESN is a better match for the fullflash than recalculated keys, so an
-	// existing cache file is used automatically unless the identity was given on the command line.
-	const bool identityGiven = program.is_used("--siemens-esn") || program.is_used("--siemens-imei") ||
-		!flash0.otp0.empty() || !flash0.otp1.empty();
-	std::error_code esnCacheEc;
-	const bool esnCached = !fullflash.empty() && std::filesystem::exists(esnCachePath(fullflash), esnCacheEc);
-	if (siemensBoard && (recoverEsn || (esnCached && !identityGiven))) {
-		if (!flash0.otp0.empty() || !flash0.otp1.empty()) {
-			std::cerr << "--siemens-recover-esn can't be combined with raw OTP data\n";
+	if (program.is_used("--siemens-esn") || program.is_used("--siemens-imei")) {
+		FlashBankOptions &flash0 = flashOptions[0];
+		try {
+			if (!siemensEsn.empty())
+				flash0.otp0 = siemens::esnToOtp(siemensEsn);
+			if (!siemensImei.empty())
+				flash0.otp1 = siemens::imeiToOtp(siemensImei);
+		} catch (const std::invalid_argument &error) {
+			spdlog::error("{}", error.what());
 			return 1;
 		}
-		std::vector<uint8_t> data;
-		if (!readFile(fullflash, data)) {
-			std::cerr << "Can't read fullflash: " << fullflash << "\n";
-			return 1;
-		}
-
-		SiemensIdentity identity = siemensReadIdentity(data);
-		if (!identity.ok && recoverEsn) {
-			std::cerr << "Can't read the IMEI and keys from this fullflash, so the ESN can't be recovered.\n"
-				<< "Run without --siemens-recover-esn to recalculate the keys instead.\n";
-			return 1;
-		}
-
-		uint32_t esn = 0;
-		bool haveEsn = identity.ok && readEsnCache(fullflash, identity.imei, identityKey(identity), esn);
-		if (haveEsn) {
-			std::cout << "[esn] Using ESN " << esnToHex(esn) << " cached in " << esnCachePath(fullflash) << "\n";
-		} else if (recoverEsn) {
-			std::cout << "[esn] Searching for the ESN of IMEI " << identity.imei << " (up to 2^32 keys, this can take a while)...\n";
-			std::cout.flush();
-
-			const auto started = std::chrono::steady_clock::now();
-			if (!siemensRecoverEsn(identity, esn)) {
-				std::cerr << "ESN not found, the keys in this fullflash are inconsistent.\n"
-					<< "Run without --siemens-recover-esn to recalculate them instead.\n";
-				return 1;
-			}
-
-			const auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-				std::chrono::steady_clock::now() - started).count();
-			std::cout << "[esn] Recovered ESN " << esnToHex(esn) << " in " << elapsed << " s\n";
-			writeEsnCache(fullflash, identity.imei, identityKey(identity), esn);
-			haveEsn = true;
-		} else {
-			// The cache is stale (different fullflash identity), fall back to recalculation.
-			std::cout << "[esn] " << esnCachePath(fullflash) << " doesn't match this fullflash, recalculating the keys instead\n";
-		}
-
-		if (haveEsn) {
-			siemensEsn = esnToHex(esn);
-			siemensImei = identity.imei;
-			esnRecovered = true;
-		}
+		hasOTP = true;
 	}
 
-	// Default emulator IMEI & ESN for FLASH0
-	if (siemensBoard && siemensEsn.empty() && flash0.otp0.empty())
-		siemensEsn = "12345678";
-	if (siemensBoard && siemensImei.empty() && flash0.otp1.empty())
-		siemensImei = "490154203237518"; // Nokia *trollface*
+	if (device.starts_with("siemens-") && !hasOTP) {
+		FlashBankOptions &flash0 = flashOptions[0];
+		flash0.otp0 = siemens::esnToOtp(DEFAULT_ESN);
+		flash0.otp1 = siemens::imeiToOtp(DEFAULT_IMEI);
 
-	if (flash0.otp0.empty() && !siemensEsn.empty())
-		flash0.otp0 = convertESNtoOTP(siemensEsn);
-	if (flash0.otp1.empty() && !siemensImei.empty())
-		flash0.otp1 = convertIMEItoOTP(siemensImei);
+		if (siemens::isRecalculated(fullflash)) {
+			spdlog::info("[otp] Fullflash HASH already matches the default OTP");
+		} else if (program.get<bool>("--siemens-recalc")) {
+			try {
+				std::vector<uint8_t> data;
+				if (!readFile(fullflash, data))
+					throw std::runtime_error("Can't read fullflash: " + fullflash);
 
-	// Siemens firmware binds itself to the ESN/IMEI with keys stored in the bootcore and EEPROM.
-	// Recalculate them in memory for the emulator identity unless disabled.
-	const bool rw = program.get<bool>("--rw");
-	const bool recalcEnabled = siemensBoard && !esnRecovered && !program.get<bool>("--siemens-no-recalc");
-	std::string qemuFullflash = fullflash;
-	TempFileCopy fullflashCopy;
-	if (recalcEnabled) {
-		if (siemensImei.size() != 15 || siemensEsn.size() != 8) {
-			std::cout << "[recalc] IMEI or ESN is unknown (raw OTP data was given), fullflash keys are not recalculated\n";
-		} else {
-			std::vector<uint8_t> data;
-			if (!readFile(fullflash, data)) {
-				std::cerr << "Can't read fullflash: " << fullflash << "\n";
+				siemens::Keys keys;
+				keys.imei = DEFAULT_IMEI;
+				keys.esn = (uint32_t) std::stoul(DEFAULT_ESN, nullptr, 16);
+				keys.skey = 12345678;
+				keys.masterKeys.fill(12345678);
+				auto result = siemens::recalculateFullflash(data, keys);
+				if (result && result->changed) {
+					if (rw) {
+						if (!replaceFile(fullflash, data))
+							throw std::runtime_error("Can't replace fullflash: " + fullflash);
+					} else {
+						fullflash = fullflashCopy.create(data);
+					}
+				}
+			} catch (const std::exception &err) {
+				spdlog::error("{}", err.what());
 				return 1;
 			}
-
-			SiemensKeys keys;
-			keys.imei = siemensImei;
-			keys.esn = static_cast<uint32_t>(std::stoul(siemensEsn, nullptr, 16));
-			// Only consistency matters for the emulator, so the PapuaUtils defaults are used.
-			keys.skey = 12345678;
-			keys.masterKeys.fill(12345678);
-
-			const std::vector<uint8_t> original = rw ? data : std::vector<uint8_t>();
-			SiemensRecalcResult result = siemensRecalcFullflash(data, keys);
-			for (const auto &line : result.log)
-				std::cout << "[recalc] " << line << "\n";
-
-			if (!result.structureOk) {
-				std::cout << "[recalc] Fullflash structure was not recognized, running it as is\n";
-			} else if (result.replaced == 0) {
-				std::cout << "[recalc] Fullflash keys already match IMEI " << keys.imei << " and ESN " << siemensEsn << "\n";
-			} else if (rw) {
-				// In write mode the fullflash on disk is the phone's flash, so recalculate it in place.
-				if (!patchFile(fullflash, original, data)) {
-					std::cerr << "Can't write recalculated keys to " << fullflash << "\n";
-					return 1;
+		} else {
+			try {
+				if (auto otp = siemens::recoverOtp(fullflash)) {
+					flash0.otp0 = otp->otp0;
+					flash0.otp1 = otp->otp1;
 				}
-				std::cout << "[recalc] Fullflash keys recalculated in " << fullflash << " for IMEI " << keys.imei << " and ESN " << siemensEsn
-					<< (result.complete ? "" : " (some EEPROM blocks were not found)") << "\n";
-			} else {
-				if (!fullflashCopy.create(data)) {
-					std::cerr << "Can't create an in-memory copy of the fullflash\n";
-					return 1;
-				}
-				qemuFullflash = fullflashCopy.path();
-				std::cout << "[recalc] Fullflash keys recalculated in memory for IMEI " << keys.imei << " and ESN " << siemensEsn
-					<< (result.complete ? "" : " (some EEPROM blocks were not found)") << "\n";
-
-				// QEMU derives the OTP/EFA side files from the fullflash name, keep them next to the original file.
-				auto keepSideFile = [&](std::string &option, const char *suffix) {
-					std::error_code ec;
-					if (option.empty() && std::filesystem::exists(fullflash + suffix, ec))
-						option = fullflash + suffix;
-				};
-				keepSideFile(flash0.otp0File, ".cfi-otp0");
-				keepSideFile(flash0.otp1File, ".cfi-otp1");
-				keepSideFile(flash0.efaFile, ".cfi-efa");
+			} catch (const std::exception &err) {
+				spdlog::warn("{}", err.what());
 			}
 		}
 	}
 
 	for (size_t index = 0; index < FLASH_BANK_COUNT; index++) {
 		const FlashBankOptions &options = flashOptions[index];
-		const std::string prefix = "PMB887X_FLASH" + std::to_string(index) + "_";
+		const auto prefix = "PMB887X_FLASH" + std::to_string(index) + "_";
 		if (!options.otp0.empty())
 			qemuEnv[prefix + "OTP0"] = options.otp0;
 		if (!options.otp1.empty())
@@ -460,6 +394,7 @@ int main(int argc, char *argv[]) {
 		if (!options.efaFile.empty())
 			qemuEnv[prefix + "EFA_FILE"] = options.efaFile;
 	}
+
 	if (program.get<bool>("--qemu-run-with-gdb")) {
 		qemuArgs.emplace_back("gdb");
 		qemuArgs.emplace_back("--args");
@@ -474,12 +409,12 @@ int main(int argc, char *argv[]) {
 	qemuArgs.emplace_back("pmb887x");
 
 	if (rw) {
-		std::cout << "Write mode enabled! Your fullflash will be modified!\n";
+		spdlog::warn("Write mode enabled! Your fullflash will be modified!");
 		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,format=raw,file=" + qemuFullflash);
+		qemuArgs.emplace_back("if=pflash,format=raw,file=" + fullflash);
 	} else {
 		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + qemuFullflash);
+		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + fullflash);
 	}
 
 	if (program.present("--trace"))
@@ -511,7 +446,7 @@ int main(int argc, char *argv[]) {
 
 	if (program.present("--qemu-monitor")) {
 		qemuArgs.emplace_back("-monitor");
-		qemuArgs.emplace_back(program.get<std::string>("--monitor"));
+		qemuArgs.emplace_back(program.get<std::string>("--qemu-monitor"));
 	}
 
 	if (program.present("--qemu-debug")) {
@@ -519,45 +454,51 @@ int main(int argc, char *argv[]) {
 		qemuArgs.emplace_back(program.get<std::string>("--qemu-debug"));
 	}
 
-	if (isUNIX()) {
-		setEnv("GTK_MODULES", "");
-		setEnv("GTK2_MODULES", "");
-		setEnv("GTK3_MODULES", "");
-	}
+#if !defined(_WIN32) && !defined(__APPLE__)
+	setEnvironmentVariable("GTK_MODULES", "");
+	setEnvironmentVariable("GTK2_MODULES", "");
+	setEnvironmentVariable("GTK3_MODULES", "");
+#endif
 
-	std::cout << "---------------------------------------------------\n";
-	for (auto &it: qemuEnv) {
-		std::cout << (isWindows() ? "set " : "export ") << it.first << "=" << it.second << "\n";
-		setEnv(it.first, it.second);
+	spdlog::info("---------------------------------------------------");
+	for (const auto &[name, value] : qemuEnv) {
+		spdlog::info("{}{}={}", isWindows() ? "set " : "export ", name, value);
+		setEnvironmentVariable(name, value);
 	}
-	std::cout << strJoin(qemuArgs, " ") << "\n";
-	std::cout << "---------------------------------------------------\n";
+	spdlog::info("{}", joinStrings(qemuArgs, " "));
+	spdlog::info("---------------------------------------------------");
 
-	return exec(qemuArgs);
+	try {
+		return executeProcess(qemuArgs);
+	} catch (const std::exception &error) {
+		spdlog::error("{}", error.what());
+		return 1;
+	}
 }
 
 static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode) {
-	const bool operatorValid = (operatorCode.size() == SIM_OPERATOR_MIN_LENGTH || operatorCode.size() == SIM_OPERATOR_MAX_LENGTH) &&
-		std::all_of(operatorCode.begin(), operatorCode.end(), [](uint8_t value) { return std::isdigit(value); });
-	if (!operatorValid)
+	if (operatorCode.size() != SIM_OPERATOR_MIN_LENGTH && operatorCode.size() != SIM_OPERATOR_MAX_LENGTH)
+		throw std::invalid_argument("--sim-operator must contain MCC+MNC as 5 or 6 decimal digits");
+	if (!std::all_of(operatorCode.begin(), operatorCode.end(), [](uint8_t value) { return std::isdigit(value); }))
 		throw std::invalid_argument("--sim-operator must contain MCC+MNC as 5 or 6 decimal digits");
 
 	if (imsi.empty())
 		return;
-	const bool imsiValid = imsi.size() == SIM_IMSI_LENGTH &&
-		std::all_of(imsi.begin(), imsi.end(), [](uint8_t value) { return std::isdigit(value); });
-	if (!imsiValid)
+
+	if (imsi.size() != SIM_IMSI_LENGTH)
+		throw std::invalid_argument("--sim-imsi must contain exactly 15 decimal digits");
+	if (!std::all_of(imsi.begin(), imsi.end(), [](uint8_t value) { return std::isdigit(value); }))
 		throw std::invalid_argument("--sim-imsi must contain exactly 15 decimal digits");
 	if (!imsi.starts_with(operatorCode))
 		throw std::invalid_argument("--sim-imsi must start with the MCC+MNC specified by --sim-operator");
 }
 
-static std::string getBoardConfig(const std::string &device) {
+static std::string getBoardConfigPath(const std::string &device) {
 	if (device.ends_with(".toml") || device.ends_with(".TOML"))
 		return device;
 
 	auto file = device + ".toml";
-	std::filesystem::path exeDir = getExecutableDir();
+	auto exeDir = getExecutableDirectory();
 
 	std::vector<std::filesystem::path> variants;
 	variants.emplace_back(exeDir / ("../bsp/lib/data/board/" + file)); // build
@@ -566,22 +507,15 @@ static std::string getBoardConfig(const std::string &device) {
 
 	for (const auto &path : variants) {
 		std::error_code ec;
-		if (std::filesystem::exists(path, ec) && !ec)
+		if (std::filesystem::exists(path, ec))
 			return std::filesystem::canonical(path).string();
 	}
 
 	throw std::runtime_error("QEMU configuration file not found: " + device);
-
-	return "";
 }
 
-// The cache is tied to the keys it was recovered from, so it is dropped when the fullflash changes.
-static std::string identityKey(const SiemensIdentity &identity) {
-	return identity.hasBootKey ? toHex(identity.bootKey.data(), 16) : toHex(identity.hash.data(), 16);
-}
-
-static std::string getQemuBin() {
-	std::filesystem::path exeDir = getExecutableDir();
+static std::string getQemuBinaryPath() {
+	auto exeDir = getExecutableDirectory();
 
 	std::vector<std::filesystem::path> variants;
 	if (isWindows()) {
@@ -599,11 +533,9 @@ static std::string getQemuBin() {
 
 	for (const auto &path : variants) {
 		std::error_code ec;
-		if (std::filesystem::exists(path, ec) && !ec)
+		if (std::filesystem::exists(path, ec))
 			return std::filesystem::canonical(path).string();
 	}
 
 	throw std::runtime_error("QEMU binary not found!");
-
-	return "";
 }
