@@ -252,49 +252,31 @@ std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo 
 	if (eeprom.hasBlock(5468)) {
 		auto block = eeprom.readBlock(5468);
 		if (block.size() == 0x31 && block[16] == 0x58) {
-			spdlog::info("[esn] Trying EEPROM block 5468");
 			auto result = recoverEsnFromHash(&block[17], threadCount);
-			if (std::get<0>(result)) {
-				spdlog::info("[esn] Matched EEPROM block 5468");
+			if (std::get<0>(result))
 				return result;
-			}
-			spdlog::info("[esn] EEPROM block 5468 did not match");
 		}
 	}
 
-	std::string identitySource;
-	if (info.skey.size() == 4 && info.bkey.size() == 16) {
-		identitySource = "BKEY + SKEY";
-	} else if (info.skey.size() == 4 && info.hash.size() == 16) {
-		identitySource = "HASH + SKEY";
-	}
-	if (!identitySource.empty())
-		spdlog::info("[esn] Trying {}", identitySource);
 	auto result = recoverEsnFromBkeyOrHash(info, threadCount);
-	if (std::get<0>(result)) {
-		spdlog::info("[esn] Matched {}", identitySource);
+	if (std::get<0>(result))
 		return result;
-	}
-	if (!identitySource.empty())
-		spdlog::info("[esn] {} did not match", identitySource);
 
-	if (info.imei.size() != 15) {
-		spdlog::info("[esn] Encrypted EEPROM methods unavailable: IMEI is missing");
+	if (info.imei.size() != 15)
 		return { false, 0 };
-	}
+
+	bool hasSlowBlocks = eeprom.hasBlock(5008) || eeprom.hasBlock(5077) || eeprom.hasBlock(5121) || eeprom.hasBlock(5123);
+	if (hasSlowBlocks)
+		spdlog::info("[otp] Slow ESN search started; use --siemens-recalc to replace the fullflash keys instead");
 
 	std::vector<uint8_t> block5077;
 	if (eeprom.hasBlock(5077))
 		block5077 = eeprom.readBlock(5077);
 	if (eeprom.hasBlock(5008)) {
-		spdlog::info("[esn] Trying EEPROM block 5008");
 		auto block = eeprom.readBlock(5008);
 		result = recoverEsnFromBlock5008(block, block5077, info.imei, threadCount);
-		if (std::get<0>(result)) {
-			spdlog::info("[esn] Matched EEPROM block 5008");
+		if (std::get<0>(result))
 			return result;
-		}
-		spdlog::info("[esn] EEPROM block 5008 did not match");
 	}
 
 	std::vector<uint8_t> block5121;
@@ -303,39 +285,27 @@ std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo 
 	if (info.skey.size() == 4) {
 		uint32_t skey = readUInt32LE(info.skey.data());
 		if (block5121.size() >= 8) {
-			spdlog::info("[esn] Trying EEPROM block 5121");
 			std::vector<uint8_t> marker(block5121.begin(), block5121.begin() + 8);
 			result = recoverEsnFromSecurityMarker(marker, info.imei, skey, threadCount);
-			if (std::get<0>(result)) {
-				spdlog::info("[esn] Matched EEPROM block 5121");
+			if (std::get<0>(result))
 				return result;
-			}
-			spdlog::info("[esn] EEPROM block 5121 did not match");
 		}
 
 		if (eeprom.hasBlock(5123)) {
 			auto block = eeprom.readBlock(5123);
 			if (block.size() >= 12) {
-				spdlog::info("[esn] Trying EEPROM block 5123");
 				std::vector<uint8_t> marker(block.begin() + 4, block.begin() + 12);
 				result = recoverEsnFromSecurityMarker(marker, info.imei, skey, threadCount);
-				if (std::get<0>(result)) {
-					spdlog::info("[esn] Matched EEPROM block 5123");
+				if (std::get<0>(result))
 					return result;
-				}
-				spdlog::info("[esn] EEPROM block 5123 did not match");
 			}
 		}
 	}
 
 	if (!block5077.empty()) {
-		spdlog::info("[esn] Trying EEPROM block 5077");
 		result = recoverEsnFromBlock5077(block5077, info.imei, threadCount);
-		if (std::get<0>(result)) {
-			spdlog::info("[esn] Matched EEPROM block 5077");
+		if (std::get<0>(result))
 			return result;
-		}
-		spdlog::info("[esn] EEPROM block 5077 did not match");
 	}
 
 	return { false, 0 };

@@ -285,14 +285,8 @@ static Identity recoverIdentity(const std::string &path, std::vector<uint8_t> &d
 
 	uint32_t esn = 0;
 	if (canUseCache && readEsnCache(path, info->hash, esn)) {
-		spdlog::info("[esn] Using ESN {} cached in {}.esn", esnToHex(esn), path);
+		spdlog::info("[otp] Using cached ESN {}", esnToHex(esn));
 		return Identity { esnToHex(esn), info->imei };
-	}
-
-	if (info->imei.empty()) {
-		spdlog::info("[esn] Searching for the ESN...");
-	} else {
-		spdlog::info("[esn] Searching for the ESN of IMEI {}...", info->imei);
 	}
 
 	auto started = std::chrono::steady_clock::now();
@@ -300,10 +294,8 @@ static Identity recoverIdentity(const std::string &path, std::vector<uint8_t> &d
 	if (!found)
 		throw std::runtime_error("ESN not found: inconsistent fullflash keys");
 
-	auto finished = std::chrono::steady_clock::now();
-	auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(finished - started);
-	int64_t elapsedSeconds = elapsed.count();
-	spdlog::info("[esn] Recovered ESN {} in {} s", esnToHex(recoveredEsn), elapsedSeconds);
+	auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - started);
+	spdlog::info("[otp] Recovered ESN {} for IMEI {} in {} s", esnToHex(recoveredEsn), info->imei, elapsed.count());
 	if (canUseCache) {
 		try {
 			writeEsnCache(path, *info, recoveredEsn);
@@ -315,7 +307,6 @@ static Identity recoverIdentity(const std::string &path, std::vector<uint8_t> &d
 }
 
 std::optional<Otp> recoverOtp(const std::string &path) {
-	spdlog::info("[otp] Recovering OTP from {}", path);
 	auto data = readFullflash(path);
 	auto bootcore = getBootcoreLayout(data);
 	if (!bootcore)
@@ -326,7 +317,6 @@ std::optional<Otp> recoverOtp(const std::string &path) {
 	}
 
 	auto identity = recoverIdentity(path, data);
-	spdlog::info("[otp] Recovered OTP for IMEI {} and ESN {}", identity.imei, identity.esn);
 	return Otp { esnToOtp(identity.esn), imeiToOtp(identity.imei) };
 }
 
