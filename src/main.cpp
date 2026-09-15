@@ -272,7 +272,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (device.empty()) {
-		auto info = siemens::probeFullflash(fullflash);
+		auto info = SiemensFW::probeFullflash(fullflash);
 		if (!info) {
 			spdlog::error("Can't detect device from fullflash, specify --device");
 			return 1;
@@ -327,9 +327,9 @@ int main(int argc, char *argv[]) {
 		FlashBankOptions &flash0 = flashOptions[0];
 		try {
 			if (!siemensEsn.empty())
-				flash0.otp0 = siemens::esnToOtp(siemensEsn);
+				flash0.otp0 = SiemensFW::esnToOtp(siemensEsn);
 			if (!siemensImei.empty())
-				flash0.otp1 = siemens::imeiToOtp(siemensImei);
+				flash0.otp1 = SiemensFW::imeiToOtp(siemensImei);
 		} catch (const std::invalid_argument &error) {
 			spdlog::error("{}", error.what());
 			return 1;
@@ -339,8 +339,8 @@ int main(int argc, char *argv[]) {
 
 	if (device.starts_with("siemens-") && !hasOTP) {
 		FlashBankOptions &flash0 = flashOptions[0];
-		flash0.otp0 = siemens::esnToOtp(DEFAULT_ESN);
-		flash0.otp1 = siemens::imeiToOtp(DEFAULT_IMEI);
+		flash0.otp0 = SiemensFW::esnToOtp(DEFAULT_ESN);
+		flash0.otp1 = SiemensFW::imeiToOtp(DEFAULT_IMEI);
 
 		if (program.get<bool>("--siemens-recalc")) {
 			try {
@@ -348,12 +348,12 @@ int main(int argc, char *argv[]) {
 				if (!readFile(fullflash, data))
 					throw std::runtime_error("Can't read fullflash: " + fullflash);
 
-				siemens::Keys keys;
+				SiemensFW::Keys keys;
 				keys.imei = DEFAULT_IMEI;
 				keys.esn = (uint32_t) std::stoul(DEFAULT_ESN, nullptr, 16);
 				keys.skey = 12345678;
 				keys.masterKeys.fill(12345678);
-				auto result = siemens::recalculateFullflash(data, keys);
+				auto result = SiemensFW::recalculateFullflash(data, keys);
 				if (result && result->changed) {
 					if (rw) {
 						if (!replaceFile(fullflash, data))
@@ -368,7 +368,7 @@ int main(int argc, char *argv[]) {
 			}
 		} else {
 			try {
-				if (auto otp = siemens::recoverOtp(fullflash)) {
+				if (auto otp = SiemensFW::recoverOtp(fullflash)) {
 					flash0.otp0 = otp->otp0;
 					flash0.otp1 = otp->otp1;
 				}

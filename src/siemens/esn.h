@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace siemens {
+namespace SiemensFW {
 
 struct FullflashInfo;
 

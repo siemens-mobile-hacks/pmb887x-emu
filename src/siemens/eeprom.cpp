@@ -4,7 +4,7 @@
 #include <cstring>
 #include <format>
 
-namespace siemens {
+namespace SiemensFW {
 
 static const size_t PARTITION_STEP = 0x10000;
 

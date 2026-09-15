@@ -21,7 +21,7 @@ add_library(
 	../utils/file.cpp
 	../utils/string.cpp
 )
-add_library(siemens::fw ALIAS siemensfw)
+add_library(SiemensFW::SiemensFW ALIAS siemensfw)
 target_include_directories(siemensfw PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/..")
 target_link_libraries(siemensfw PRIVATE siemensfw-dependencies)
 target_compile_features(siemensfw PUBLIC cxx_std_20)

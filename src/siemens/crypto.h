@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <string>
 
-namespace siemens {
+namespace SiemensFW {
 
 inline constexpr size_t CIPHER_BATCH_SIZE = 8;
 

@@ -11,7 +11,7 @@
 #include <fstream>
 #include <stdexcept>
 
-namespace siemens {
+namespace SiemensFW {
 
 std::string esnToHex(uint32_t esn) {
 	static const char HEX_DIGITS[] = "0123456789ABCDEF";

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <stdexcept>
 
-namespace siemens {
+namespace SiemensFW {
 
 std::string imeiToOtp(const std::string &imei) {
 	if (imei.length() != 15)

@@ -5,12 +5,12 @@
 #include <functional>
 #include <tuple>
 
-namespace siemens {
+namespace SiemensFW {
 
 class Eeprom;
 struct FullflashInfo;
 
-enum class EsnRecoveryStage {
+enum class EsnRecoveryMethod {
 	KNOWN_HASH,
 	BLOCK_5468,
 	BKEY,
@@ -21,11 +21,11 @@ enum class EsnRecoveryStage {
 	BLOCK_5077,
 };
 
-using EsnProgressCallback = std::function<void(EsnRecoveryStage stage, uint32_t percent)>;
+using EsnProgressCallback = std::function<void(EsnRecoveryMethod method, uint32_t percent)>;
 
 // Recovers the ESN from the available fullflash identity and EEPROM security blocks.
 // Brute-force methods sweep the whole 32-bit space. threadCount = 0 uses every core.
-// Progress is reported on the calling thread and runs from 0 to 100 for each attempted stage.
+// Progress is reported on the calling thread and runs from 0 to 100 for each attempted method.
 std::tuple<bool, uint32_t> recoverEsn(
 	const Eeprom &eeprom,
 	const FullflashInfo &info,

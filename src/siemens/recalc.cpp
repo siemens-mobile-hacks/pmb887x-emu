@@ -11,7 +11,7 @@
 
 #include <cstring>
 
-namespace siemens {
+namespace SiemensFW {
 
 // Constant tail of EEPROM block 52 (after BKEY and the VerDown byte); the rest is 0xFF.
 static const uint8_t BLOCK52_TAIL[145] = {

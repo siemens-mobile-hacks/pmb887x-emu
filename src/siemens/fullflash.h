@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace siemens {
+namespace SiemensFW {
 
 class Eeprom;
 

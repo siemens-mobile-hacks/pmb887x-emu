@@ -35,7 +35,7 @@ TEST_CASE("Siemens keys match known values") {
 	std::array<uint8_t, 16> bkey;
 	std::array<uint8_t, 16> hash;
 
-	siemens::calculateBkeyAndHash(0x12345678, SKEY, bkey, hash);
+	SiemensFW::calculateBkeyAndHash(0x12345678, SKEY, bkey, hash);
 
 	CHECK(bkey == EXPECTED_BKEY);
 	CHECK(hash == EXPECTED_HASH);
@@ -55,31 +55,31 @@ TEST_CASE("Siemens ciphers match known vectors") {
 	for (size_t index = 0; index < data.size(); index++)
 		data[index] = (uint8_t) index;
 	auto encrypted = data;
-	siemens::cipherEncrypt(encrypted.data(), encrypted.size(), key.data());
+	SiemensFW::cipherEncrypt(encrypted.data(), encrypted.size(), key.data());
 	CHECK(encrypted == EXPECTED_CIPHER);
 	auto decrypted = EXPECTED_CIPHER;
-	siemens::cipherDecrypt(decrypted.data(), decrypted.size(), key.data());
+	SiemensFW::cipherDecrypt(decrypted.data(), decrypted.size(), key.data());
 	CHECK(decrypted == data);
 
 	std::array<uint8_t, 10> imei = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 	auto liteImei = imei;
-	siemens::imeiCipherEncrypt(liteImei.data(), false);
+	SiemensFW::imeiCipherEncrypt(liteImei.data(), false);
 	CHECK(liteImei == EXPECTED_LITE_IMEI);
 	auto decryptedLiteImei = EXPECTED_LITE_IMEI;
-	siemens::imeiCipherDecrypt(decryptedLiteImei.data(), false);
+	SiemensFW::imeiCipherDecrypt(decryptedLiteImei.data(), false);
 	CHECK(decryptedLiteImei == imei);
 
 	auto fullImei = imei;
-	siemens::imeiCipherEncrypt(fullImei.data(), true);
+	SiemensFW::imeiCipherEncrypt(fullImei.data(), true);
 	CHECK(fullImei == EXPECTED_FULL_IMEI);
 	auto decryptedFullImei = EXPECTED_FULL_IMEI;
-	siemens::imeiCipherDecrypt(decryptedFullImei.data(), true);
+	SiemensFW::imeiCipherDecrypt(decryptedFullImei.data(), true);
 	CHECK(decryptedFullImei == imei);
 }
 
 TEST_CASE("Siemens identities convert to exact OTP and reject malformed input") {
-	CHECK(siemens::esnToOtp("12345678") == "02004AB3C31100000000");
-	CHECK(siemens::imeiToOtp("490154203237518") == "000094104502237315FF");
-	CHECK_THROWS_AS(siemens::imeiToOtp("12345678901234X"), std::invalid_argument);
-	CHECK_THROWS_AS(siemens::esnToOtp("1234567Z"), std::invalid_argument);
+	CHECK(SiemensFW::esnToOtp("12345678") == "02004AB3C31100000000");
+	CHECK(SiemensFW::imeiToOtp("490154203237518") == "000094104502237315FF");
+	CHECK_THROWS_AS(SiemensFW::imeiToOtp("12345678901234X"), std::invalid_argument);
+	CHECK_THROWS_AS(SiemensFW::esnToOtp("1234567Z"), std::invalid_argument);
 }

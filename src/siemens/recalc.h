@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace siemens {
+namespace SiemensFW {
 
 /*
  * In-memory "recalculation" of a Siemens x65/x75/x85 fullflash for a given

@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace siemens {
+namespace SiemensFW {
 
 class EepromError : public std::runtime_error {
 public:

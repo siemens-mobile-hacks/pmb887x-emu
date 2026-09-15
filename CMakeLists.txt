@@ -53,7 +53,7 @@ if (CMAKE_BUILD_TYPE MATCHES "Release")
 	target_link_options(emu PUBLIC -s)
 endif()
 
-target_link_libraries(emu PUBLIC argparse siemens::fw siemensfw-dependencies)
+target_link_libraries(emu PUBLIC argparse SiemensFW::SiemensFW siemensfw-dependencies)
 target_compile_options(emu PUBLIC -Wall -Wextra -Werror -O3)
 
 if (BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)

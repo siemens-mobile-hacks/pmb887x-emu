@@ -133,8 +133,8 @@ TEST_CASE("Bootcore information can be read from a fullflash", "[fullflash]") {
 
 		auto data = makeFullflash(version[0], version[1], "SIEMENS", "CX75", "123456789012345", hash);
 		std::vector<uint8_t> eepromData;
-		siemens::Eeprom eeprom(eepromData);
-		auto info = siemens::getFullflashInfo(eeprom, data);
+		SiemensFW::Eeprom eeprom(eepromData);
+		auto info = SiemensFW::getFullflashInfo(eeprom, data);
 		REQUIRE(info);
 		CHECK(info->device == "siemens-cx75");
 		CHECK(info->vendor == "SIEMENS");
@@ -155,7 +155,7 @@ TEST_CASE("Siemens fullflash can be identified without reading the whole file", 
 			TempFileCopy file;
 			auto path = file.create(fullflash);
 
-			auto info = siemens::probeFullflash(path);
+			auto info = SiemensFW::probeFullflash(path);
 			REQUIRE(info);
 			CHECK(info->device == "siemens-cx75");
 			CHECK(info->vendor == vendor);
@@ -168,7 +168,7 @@ TEST_CASE("Siemens fullflash can be identified without reading the whole file", 
 	fullflash[VENDOR_OFFSET + 7] = 1;
 	TempFileCopy file;
 	auto path = file.create(fullflash);
-	CHECK_FALSE(siemens::probeFullflash(path));
+	CHECK_FALSE(SiemensFW::probeFullflash(path));
 }
 
 TEST_CASE("Siemens bootcore identity is recalculated without changing the source file", "[fullflash][recalc]") {
@@ -180,13 +180,13 @@ TEST_CASE("Siemens bootcore identity is recalculated without changing the source
 	fullflash.resize(0x90000, 0xFF);
 
 	auto recalculated = fullflash;
-	siemens::Keys keys;
+	SiemensFW::Keys keys;
 	keys.imei = "490154203237518";
 	keys.esn = 0x12345678;
 	keys.skey = 12345678;
 	keys.masterKeys.fill(12345678);
-	REQUIRE(siemens::recalculateFullflash(recalculated, keys));
-	auto layout = siemens::getBootcoreLayout(recalculated);
+	REQUIRE(SiemensFW::recalculateFullflash(recalculated, keys));
+	auto layout = SiemensFW::getBootcoreLayout(recalculated);
 	REQUIRE(layout);
 	CHECK(std::equal(EXPECTED_HASH.begin(), EXPECTED_HASH.end(), recalculated.begin() + layout->hashOffset));
 	auto imei = std::string(recalculated.begin() + layout->imeiOffset, recalculated.begin() + layout->imeiOffset + 15);
@@ -200,21 +200,21 @@ TEST_CASE("Siemens OTP recovery is skipped when the bootcore hash is erased", "[
 	TempFileCopy file;
 	auto path = file.create(fullflash);
 
-	CHECK_FALSE(siemens::recoverOtp(path));
+	CHECK_FALSE(SiemensFW::recoverOtp(path));
 }
 
 TEST_CASE("Siemens ESN cache stores full identity and is validated by HASH", "[fullflash][esn]") {
 	auto fullflash = (std::filesystem::temp_directory_path() / "pmb887x-emu-esn-cache-test.bin").string();
 	std::filesystem::remove(fullflash + ".esn");
-	siemens::FullflashInfo info;
+	SiemensFW::FullflashInfo info;
 	info.imei = "490154203237518";
 	info.hash = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
 		0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE };
 	info.bkey = { 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67,
 		0x98, 0xBA, 0xDC, 0xFE, 0x10, 0x32, 0x54, 0x76 };
 	info.skey = { 0x10, 0x32, 0x54, 0x76 };
-	siemens::writeEsnCache(fullflash, info, 0x12345678);
-	CHECK_THROWS_AS(siemens::writeEsnCache(fullflash, info, 0x12345678), std::runtime_error);
+	SiemensFW::writeEsnCache(fullflash, info, 0x12345678);
+	CHECK_THROWS_AS(SiemensFW::writeEsnCache(fullflash, info, 0x12345678), std::runtime_error);
 
 	auto cache = toml::parse_file(fullflash + ".esn");
 	CHECK(cache["ESN"].value_or(std::string()) == "12345678");
@@ -224,10 +224,10 @@ TEST_CASE("Siemens ESN cache stores full identity and is validated by HASH", "[f
 	CHECK(cache["SKEY"].value_or(std::string()) == "10325476");
 
 	uint32_t esn = 0;
-	REQUIRE(siemens::readEsnCache(fullflash, info.hash, esn));
+	REQUIRE(SiemensFW::readEsnCache(fullflash, info.hash, esn));
 	CHECK(esn == 0x12345678);
 	info.hash[0] ^= 0xFF;
-	CHECK_FALSE(siemens::readEsnCache(fullflash, info.hash, esn));
+	CHECK_FALSE(SiemensFW::readEsnCache(fullflash, info.hash, esn));
 
 	std::filesystem::remove(fullflash + ".esn");
 }
@@ -239,20 +239,20 @@ TEST_CASE("Bootcore layout rejects truncated data", "[fullflash]") {
 	fullflash[0x1201] = 3;
 	writeUInt16LE(&fullflash[0x1202], 0x534C);
 
-	CHECK_FALSE(siemens::getBootcoreLayout(fullflash));
+	CHECK_FALSE(SiemensFW::getBootcoreLayout(fullflash));
 }
 
 TEST_CASE("EELITE block 320 provides BKEY without a bootcore hash", "[fullflash]") {
 	std::vector<uint8_t> bkey = { 0x42, 0x54, 0x53, 0x42, 0x01, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 	auto eepromData = makeX65EelitePartition(320, bkey);
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	std::array<uint8_t, 16> hash;
 	hash.fill(0xFF);
 	auto fullflash = makeFullflash(3, 0, "SIEMENS", "S68", "358439003424460", hash);
 	auto expectedHash = md5(bkey.data(), bkey.size());
 
-	auto info = siemens::getFullflashInfo(eeprom, fullflash);
+	auto info = SiemensFW::getFullflashInfo(eeprom, fullflash);
 	REQUIRE(info);
 	CHECK(info->bkey == bkey);
 	CHECK(info->hash == std::vector<uint8_t>(expectedHash.begin(), expectedHash.end()));
@@ -272,15 +272,15 @@ TEST_CASE("Fullflash corpus preserves device and available identity invariants",
 
 	for (const auto &path : paths) {
 		INFO("Fullflash: " << std::filesystem::relative(path, directory).string());
-		auto probe = siemens::probeFullflash(path.string());
+		auto probe = SiemensFW::probeFullflash(path.string());
 		REQUIRE(probe);
 		CHECK(probe->device == getExpectedDevice(path));
 		CHECK(probe->model == getExpectedModel(path));
 
 		std::vector<uint8_t> fullflash;
 		REQUIRE(readFile(path.string(), fullflash));
-		siemens::Eeprom eeprom(fullflash);
-		auto info = siemens::getFullflashInfo(eeprom, fullflash);
+		SiemensFW::Eeprom eeprom(fullflash);
+		auto info = SiemensFW::getFullflashInfo(eeprom, fullflash);
 		REQUIRE(info);
 		CHECK(info->device == getExpectedDevice(path));
 		CHECK(info->model == getExpectedModel(path));
@@ -320,7 +320,7 @@ TEST_CASE("EEPROM blocks can be read and written in the fullflash corpus", "[ful
 		std::vector<uint8_t> fullflash;
 		REQUIRE(readFile(path.string(), fullflash));
 
-		siemens::Eeprom eeprom(fullflash);
+		SiemensFW::Eeprom eeprom(fullflash);
 		auto block = eeprom.readBlock(76);
 		REQUIRE_FALSE(block.empty());
 		block[0] ^= 0xFF;
@@ -330,7 +330,7 @@ TEST_CASE("EEPROM blocks can be read and written in the fullflash corpus", "[ful
 		CHECK(updatedBlock == block);
 
 		updatedBlock.push_back(0);
-		CHECK_THROWS_AS(eeprom.writeBlock(76, updatedBlock), siemens::EepromError);
-		CHECK_THROWS_AS(eeprom.readBlock(0xFFFFFFFF), siemens::EepromError);
+		CHECK_THROWS_AS(eeprom.writeBlock(76, updatedBlock), SiemensFW::EepromError);
+		CHECK_THROWS_AS(eeprom.readBlock(0xFFFFFFFF), SiemensFW::EepromError);
 	}
 }

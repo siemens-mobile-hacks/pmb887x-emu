@@ -177,7 +177,7 @@ static std::vector<uint8_t> makeEeprom(TestEepromLayout layout, std::initializer
 	return eeprom;
 }
 
-static std::vector<uint8_t> makeRecalcFullflash(std::initializer_list<TestEepromBlock> blocks, const siemens::Keys &keys) {
+static std::vector<uint8_t> makeRecalcFullflash(std::initializer_list<TestEepromBlock> blocks, const SiemensFW::Keys &keys) {
 	auto partition = makeEeprom(TestEepromLayout::X65, blocks);
 	std::vector<uint8_t> eeprom(0x100000, 0xFF);
 	std::copy(partition.begin(), partition.end(), eeprom.begin() + 0x40000);
@@ -186,7 +186,7 @@ static std::vector<uint8_t> makeRecalcFullflash(std::initializer_list<TestEeprom
 	eeprom[0x201] = 2;
 	writeUInt16LE(&eeprom[0x202], 0x534C);
 	eeprom[0x238] = 0;
-	auto result = siemens::recalculateFullflash(eeprom, keys);
+	auto result = SiemensFW::recalculateFullflash(eeprom, keys);
 	REQUIRE(result);
 	return eeprom;
 }
@@ -209,7 +209,7 @@ TEST_CASE("X65 parsing stops at the first free EIT entry", "[eeprom]") {
 		{ 2, { 4 } },
 	});
 
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	CHECK_FALSE(eeprom.hasBlock(2));
 	CHECK((eeprom.readBlock(1) == std::vector<uint8_t> { 1, 2, 3 }));
 }
@@ -219,7 +219,7 @@ TEST_CASE("Unknown X65 EIT states are rejected", "[eeprom]") {
 		{ 1, { 0 }, 0xFFFFFFF0 },
 	});
 
-	CHECK_THROWS_WITH(siemens::Eeprom(eepromData), Catch::Matchers::ContainsSubstring("0001FFF0"));
+	CHECK_THROWS_WITH(SiemensFW::Eeprom(eepromData), Catch::Matchers::ContainsSubstring("0001FFF0"));
 }
 
 TEST_CASE("EELITE block IDs cannot overlap the EEFULL range", "[eeprom]") {
@@ -229,7 +229,7 @@ TEST_CASE("EELITE block IDs cannot overlap the EEFULL range", "[eeprom]") {
 		});
 		writeUInt32LE(&eepromData[X65_PARTITION_SIZE - X65_ENTRY_SIZE + 4], 5000);
 
-		CHECK_THROWS_WITH(siemens::Eeprom(eepromData), Catch::Matchers::ContainsSubstring("Block ID out of range"));
+		CHECK_THROWS_WITH(SiemensFW::Eeprom(eepromData), Catch::Matchers::ContainsSubstring("Block ID out of range"));
 	}
 
 	SECTION("X85") {
@@ -239,12 +239,12 @@ TEST_CASE("EELITE block IDs cannot overlap the EEFULL range", "[eeprom]") {
 		size_t entryOffset = X85_PARTITION_SIZE - X85_HEADER_SIZE - X85_ENTRY_SIZE;
 		writeUInt16LE(&eepromData[entryOffset + 4], 5000);
 
-		CHECK_THROWS_WITH(siemens::Eeprom(eepromData), Catch::Matchers::ContainsSubstring("Block ID out of range"));
+		CHECK_THROWS_WITH(SiemensFW::Eeprom(eepromData), Catch::Matchers::ContainsSubstring("Block ID out of range"));
 	}
 }
 
 TEST_CASE("Recalculation stays incomplete when a mandatory block has the wrong size", "[eeprom][recalc]") {
-	siemens::Keys keys;
+	SiemensFW::Keys keys;
 	keys.imei = "123456789012345";
 	keys.esn = 0x12345678;
 	keys.skey = 12345678;
@@ -268,7 +268,7 @@ TEST_CASE("Recalculation stays incomplete when a mandatory block has the wrong s
 	writeUInt16LE(&fullflash[0x202], 0x534C);
 	fullflash[0x238] = 0;
 
-	auto result = siemens::recalculateFullflash(fullflash, keys);
+	auto result = SiemensFW::recalculateFullflash(fullflash, keys);
 	REQUIRE(result);
 	CHECK_FALSE(result->complete);
 }
@@ -278,7 +278,7 @@ TEST_CASE("X65 EEFULL extended metadata is excluded from block data", "[eeprom]"
 		{ 5009, { 1, 2, 3, 4 }, ENTRY_VALID, true },
 	});
 
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	CHECK((eeprom.readBlock(5009) == std::vector<uint8_t> { 1, 2, 3, 4 }));
 }
 
@@ -288,7 +288,7 @@ TEST_CASE("X65 keeps the first valid EIT entry for duplicate block IDs", "[eepro
 		{ 1, { 0x22 } },
 	});
 
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	CHECK((eeprom.readBlock(1) == std::vector<uint8_t> { 0x11 }));
 }
 
@@ -300,7 +300,7 @@ TEST_CASE("X85 reads strided inline data across obsolete and free entries", "[ee
 		{ 77, { 0x42 } },
 	});
 
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	CHECK_FALSE(eeprom.hasBlock(10));
 	CHECK((eeprom.readBlock(76) == std::vector<uint8_t> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 }));
 	CHECK((eeprom.readBlock(77) == std::vector<uint8_t> { 0x42 }));
@@ -311,7 +311,7 @@ TEST_CASE("X85 EEFULL extended metadata is excluded from inline block data", "[e
 		{ 5009, { 1, 2, 3, 4 }, ENTRY_VALID, true },
 	});
 
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	CHECK((eeprom.readBlock(5009) == std::vector<uint8_t> { 1, 2, 3, 4 }));
 }
 
@@ -321,70 +321,70 @@ TEST_CASE("X85 keeps the last valid EIT entry for duplicate block IDs", "[eeprom
 		{ 1, { 0x22, 0xFF } },
 	});
 
-	siemens::Eeprom eeprom(eepromData);
+	SiemensFW::Eeprom eeprom(eepromData);
 	CHECK((eeprom.readBlock(1) == std::vector<uint8_t> { 0x22, 0xFF }));
 }
 
 TEST_CASE("ESN can be recovered from every supported security record", "[eeprom][recalc]") {
-	siemens::Keys keys;
+	SiemensFW::Keys keys;
 	keys.imei = "123456789012345";
 	keys.esn = 257;
 	keys.skey = 12345678;
 	keys.masterKeys.fill(87654321);
 
 	SECTION("known HASH") {
-		siemens::FullflashInfo info;
+		SiemensFW::FullflashInfo info;
 		info.hash = { 0x54, 0xF8, 0x0A, 0xC1, 0x2A, 0xCD, 0x94, 0xB2,
 			0xF5, 0xCF, 0xFB, 0x9B, 0xF7, 0xE4, 0xD4, 0x93 };
 		std::vector<uint8_t> eepromData;
-		siemens::Eeprom eeprom(eepromData);
-		std::vector<std::tuple<siemens::EsnRecoveryStage, uint32_t>> progress;
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1, [&](auto stage, uint32_t percent) {
-			progress.emplace_back(stage, percent);
+		SiemensFW::Eeprom eeprom(eepromData);
+		std::vector<std::tuple<SiemensFW::EsnRecoveryMethod, uint32_t>> progress;
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1, [&](auto method, uint32_t percent) {
+			progress.emplace_back(method, percent);
 		});
 
 		REQUIRE(found);
 		CHECK(esn == 0x12345678);
-		CHECK(progress == std::vector<std::tuple<siemens::EsnRecoveryStage, uint32_t>> {
-			{ siemens::EsnRecoveryStage::KNOWN_HASH, 0 },
-			{ siemens::EsnRecoveryStage::KNOWN_HASH, 100 },
+		CHECK(progress == std::vector<std::tuple<SiemensFW::EsnRecoveryMethod, uint32_t>> {
+			{ SiemensFW::EsnRecoveryMethod::KNOWN_HASH, 0 },
+			{ SiemensFW::EsnRecoveryMethod::KNOWN_HASH, 100 },
 		});
 	}
 
 	SECTION("BKEY without IMEI") {
-		siemens::FullflashInfo info;
+		SiemensFW::FullflashInfo info;
 		std::array<uint8_t, 16> bkey;
 		std::array<uint8_t, 16> hash;
-		siemens::calculateBkeyAndHash(keys.esn, keys.skey, bkey, hash);
+		SiemensFW::calculateBkeyAndHash(keys.esn, keys.skey, bkey, hash);
 		info.bkey.assign(bkey.begin(), bkey.end());
 		info.skey.resize(4);
 		writeUInt32LE(info.skey.data(), keys.skey);
 		std::vector<uint8_t> eepromData;
-		siemens::Eeprom eeprom(eepromData);
-		std::vector<std::tuple<siemens::EsnRecoveryStage, uint32_t>> progress;
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1, [&](auto stage, uint32_t percent) {
-			progress.emplace_back(stage, percent);
+		SiemensFW::Eeprom eeprom(eepromData);
+		std::vector<std::tuple<SiemensFW::EsnRecoveryMethod, uint32_t>> progress;
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1, [&](auto method, uint32_t percent) {
+			progress.emplace_back(method, percent);
 		});
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
-		CHECK(progress == std::vector<std::tuple<siemens::EsnRecoveryStage, uint32_t>> {
-			{ siemens::EsnRecoveryStage::BKEY, 0 },
-			{ siemens::EsnRecoveryStage::BKEY, 100 },
+		CHECK(progress == std::vector<std::tuple<SiemensFW::EsnRecoveryMethod, uint32_t>> {
+			{ SiemensFW::EsnRecoveryMethod::BKEY, 0 },
+			{ SiemensFW::EsnRecoveryMethod::BKEY, 100 },
 		});
 	}
 
 	SECTION("HASH without IMEI") {
-		siemens::FullflashInfo info;
+		SiemensFW::FullflashInfo info;
 		std::array<uint8_t, 16> bkey;
 		std::array<uint8_t, 16> hash;
-		siemens::calculateBkeyAndHash(keys.esn, keys.skey, bkey, hash);
+		SiemensFW::calculateBkeyAndHash(keys.esn, keys.skey, bkey, hash);
 		info.hash.assign(hash.begin(), hash.end());
 		info.skey.resize(4);
 		writeUInt32LE(info.skey.data(), keys.skey);
 		std::vector<uint8_t> eepromData;
-		siemens::Eeprom eeprom(eepromData);
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1);
+		SiemensFW::Eeprom eeprom(eepromData);
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1);
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
@@ -392,9 +392,9 @@ TEST_CASE("ESN can be recovered from every supported security record", "[eeprom]
 
 	SECTION("block 5468") {
 		auto eepromData = makeRecalcFullflash({ { 5468, std::vector<uint8_t>(0x31) } }, keys);
-		siemens::Eeprom eeprom(eepromData);
-		siemens::FullflashInfo info;
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1);
+		SiemensFW::Eeprom eeprom(eepromData);
+		SiemensFW::FullflashInfo info;
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1);
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
@@ -402,12 +402,12 @@ TEST_CASE("ESN can be recovered from every supported security record", "[eeprom]
 
 	SECTION("block 5121") {
 		auto eepromData = makeRecalcFullflash({ { 5121, std::vector<uint8_t>(0x38) } }, keys);
-		siemens::Eeprom eeprom(eepromData);
-		siemens::FullflashInfo info;
+		SiemensFW::Eeprom eeprom(eepromData);
+		SiemensFW::FullflashInfo info;
 		info.imei = keys.imei;
 		info.skey.resize(4);
 		writeUInt32LE(info.skey.data(), keys.skey);
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1);
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1);
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
@@ -415,12 +415,12 @@ TEST_CASE("ESN can be recovered from every supported security record", "[eeprom]
 
 	SECTION("block 5123") {
 		auto eepromData = makeRecalcFullflash({ { 5123, std::vector<uint8_t>(0xC) } }, keys);
-		siemens::Eeprom eeprom(eepromData);
-		siemens::FullflashInfo info;
+		SiemensFW::Eeprom eeprom(eepromData);
+		SiemensFW::FullflashInfo info;
 		info.imei = keys.imei;
 		info.skey.resize(4);
 		writeUInt32LE(info.skey.data(), keys.skey);
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1);
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1);
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
@@ -431,27 +431,27 @@ TEST_CASE("ESN can be recovered from every supported security record", "[eeprom]
 			{ 5008, std::vector<uint8_t>(0xE0) },
 			{ 5077, std::vector<uint8_t>(0xE8) },
 		}, keys);
-		siemens::Eeprom eeprom(eepromData);
-		auto key = siemens::buildEepromKey(keys.esn, keys.imei);
+		SiemensFW::Eeprom eeprom(eepromData);
+		auto key = SiemensFW::buildEepromKey(keys.esn, keys.imei);
 
 		auto block5008 = eeprom.readBlock(5008);
-		siemens::cipherDecrypt(&block5008[0], 0x20, key.data());
-		siemens::cipherDecrypt(&block5008[0x20], 0xC0, key.data());
+		SiemensFW::cipherDecrypt(&block5008[0], 0x20, key.data());
+		SiemensFW::cipherDecrypt(&block5008[0x20], 0xC0, key.data());
 		block5008[0xD0] = 0x42;
 		writeChecksum(&block5008[0x28], 0xB0);
-		siemens::cipherEncrypt(&block5008[0], 0x20, key.data());
-		siemens::cipherEncrypt(&block5008[0x20], 0xC0, key.data());
+		SiemensFW::cipherEncrypt(&block5008[0], 0x20, key.data());
+		SiemensFW::cipherEncrypt(&block5008[0x20], 0xC0, key.data());
 		eeprom.writeBlock(5008, block5008);
 
 		auto block5077 = eeprom.readBlock(5077);
-		siemens::cipherDecrypt(block5077.data(), block5077.size(), key.data());
+		SiemensFW::cipherDecrypt(block5077.data(), block5077.size(), key.data());
 		std::fill(block5077.begin() + 0xE2, block5077.end(), 0x42);
-		siemens::cipherEncrypt(block5077.data(), block5077.size(), key.data());
+		SiemensFW::cipherEncrypt(block5077.data(), block5077.size(), key.data());
 		eeprom.writeBlock(5077, block5077);
 
-		siemens::FullflashInfo info;
+		SiemensFW::FullflashInfo info;
 		info.imei = keys.imei;
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1);
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1);
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
@@ -459,10 +459,10 @@ TEST_CASE("ESN can be recovered from every supported security record", "[eeprom]
 
 	SECTION("block 5077") {
 		auto eepromData = makeRecalcFullflash({ { 5077, std::vector<uint8_t>(0xE8) } }, keys);
-		siemens::Eeprom eeprom(eepromData);
-		siemens::FullflashInfo info;
+		SiemensFW::Eeprom eeprom(eepromData);
+		SiemensFW::FullflashInfo info;
 		info.imei = keys.imei;
-		auto [found, esn] = siemens::recoverEsn(eeprom, info, 1);
+		auto [found, esn] = SiemensFW::recoverEsn(eeprom, info, 1);
 
 		REQUIRE(found);
 		CHECK(esn == keys.esn);
@@ -472,10 +472,10 @@ TEST_CASE("ESN can be recovered from every supported security record", "[eeprom]
 		auto eepromData = makeEeprom(TestEepromLayout::X85, {
 			{ 5008, std::vector<uint8_t>(0xE0, 0xFF) },
 		});
-		siemens::Eeprom eeprom(eepromData);
-		siemens::FullflashInfo info;
+		SiemensFW::Eeprom eeprom(eepromData);
+		SiemensFW::FullflashInfo info;
 		info.imei = keys.imei;
 
-		CHECK_FALSE(std::get<0>(siemens::recoverEsn(eeprom, info, 1)));
+		CHECK_FALSE(std::get<0>(SiemensFW::recoverEsn(eeprom, info, 1)));
 	}
 }

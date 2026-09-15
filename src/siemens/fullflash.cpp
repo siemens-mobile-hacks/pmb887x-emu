@@ -19,7 +19,7 @@
 #include <fstream>
 #include <stdexcept>
 
-namespace siemens {
+namespace SiemensFW {
 
 static const size_t BOOTCORE_MAGIC_OFFSET = 0x3C;
 static const size_t INTERFACE_OFFSETS[] = { 0x200, 0x1200 };

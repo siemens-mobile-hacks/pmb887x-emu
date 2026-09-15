@@ -5,7 +5,7 @@ add_executable(
 	fullflash.cpp
 	../../utils/temp_file.cpp
 )
-target_link_libraries(siemensfw-tests PRIVATE Catch2::Catch2WithMain siemens::fw siemensfw-dependencies)
+target_link_libraries(siemensfw-tests PRIVATE Catch2::Catch2WithMain SiemensFW::SiemensFW siemensfw-dependencies)
 target_compile_options(siemensfw-tests PRIVATE -Wall -Wextra -Werror)
 
 include(Catch)
