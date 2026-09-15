@@ -19,22 +19,19 @@ execute_process(
 configure_file("src/config.h.in" "config.h" @ONLY)
 
 add_subdirectory(third_party/argparse)
-add_subdirectory(third_party/tomlplusplus)
-set(SPDLOG_INSTALL OFF CACHE BOOL "" FORCE)
-add_subdirectory(third_party/spdlog)
+
+if (BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
+	set(CATCH_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+	set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
+	add_subdirectory(third_party/catch2 EXCLUDE_FROM_ALL)
+	set(SIEMENSFW_BUILD_TESTS ON)
+endif()
+
+add_subdirectory(src/siemens)
 
 add_executable(
 	emu
 	src/main.cpp
-	src/siemens/bruteforce.cpp
-	src/siemens/fullflash.cpp
-	src/crypto/md4.cpp
-	src/crypto/md5.cpp
-	src/siemens/crypto.cpp
-	src/siemens/eeprom.cpp
-	src/siemens/esn.cpp
-	src/siemens/otp.cpp
-	src/siemens/recalc.cpp
 	src/utils/file.cpp
 	src/utils/process.cpp
 	src/utils/string.cpp
@@ -51,18 +48,15 @@ endif()
 if (CMAKE_BUILD_TYPE MATCHES "Release")
 	check_ipo_supported(RESULT HAVE_IPO)
 	if (HAVE_IPO)
-		set_property(TARGET emu PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+		set_property(TARGET emu siemensfw PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 	endif()
 	target_link_options(emu PUBLIC -s)
 endif()
 
-target_link_libraries(emu PUBLIC argparse spdlog::spdlog tomlplusplus::tomlplusplus)
+target_link_libraries(emu PUBLIC argparse siemens::fw siemensfw-dependencies)
 target_compile_options(emu PUBLIC -Wall -Wextra -Werror -O3)
 
 if (BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
-	set(CATCH_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
-	set(CATCH_INSTALL_EXTRAS OFF CACHE BOOL "" FORCE)
-	add_subdirectory(third_party/catch2 EXCLUDE_FROM_ALL)
 	add_subdirectory(tests)
 endif()
 

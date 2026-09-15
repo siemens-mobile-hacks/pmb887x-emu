@@ -26,12 +26,8 @@ static const size_t INTERFACE_OFFSETS[] = { 0x200, 0x1200 };
 static const size_t MODEL_OFFSET = 0x8FC70;
 static const size_t VENDOR_OFFSET = 0x8FC80;
 static const size_t VENDOR_OFFSETS[] = { VENDOR_OFFSET, 0x220, 0x880, 0xC80 };
-static const size_t BCORE_HASH_OFFSETS[] = { 0x238, 0x23C, 0x3E400 };
 static const uint32_t BOOTCORE_MAGIC = 0x544B4A43;
 static const uint16_t INTERFACE_MAGIC = 0x534C;
-static const std::array<uint8_t, 16> RECALCULATED_BCORE_HASH = {
-	0x54, 0xF8, 0x0A, 0xC1, 0x2A, 0xCD, 0x94, 0xB2, 0xF5, 0xCF, 0xFB, 0x9B, 0xF7, 0xE4, 0xD4, 0x93,
-};
 
 struct Identity {
 	std::string esn;
@@ -256,23 +252,6 @@ static std::vector<uint8_t> readFullflash(const std::string &path) {
 	if (!readFile(path, data))
 		throw std::runtime_error("Can't read fullflash: " + path);
 	return data;
-}
-
-bool isRecalculated(const std::string &path) {
-	std::ifstream input(path, std::ios::binary);
-	if (!input)
-		return false;
-
-	std::array<uint8_t, 16> hash;
-	for (size_t offset : BCORE_HASH_OFFSETS) {
-		input.clear();
-		input.seekg((std::streamoff) offset);
-		if (!input.read((char *) hash.data(), (std::streamsize) hash.size()))
-			continue;
-		if (hash == RECALCULATED_BCORE_HASH)
-			return true;
-	}
-	return false;
 }
 
 static Identity recoverIdentity(const std::string &path, std::vector<uint8_t> &data) {

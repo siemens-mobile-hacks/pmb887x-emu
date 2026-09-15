@@ -40,7 +40,6 @@ struct Otp {
 std::optional<FullflashInfo> probeFullflash(const std::string &path);
 std::optional<BootcoreLayout> getBootcoreLayout(const std::vector<uint8_t> &fullflash);
 std::optional<FullflashInfo> getFullflashInfo(const Eeprom &eeprom, const std::vector<uint8_t> &fullflash);
-bool isRecalculated(const std::string &path);
 std::optional<Otp> recoverOtp(const std::string &path);
 
 }

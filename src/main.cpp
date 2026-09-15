@@ -342,9 +342,7 @@ int main(int argc, char *argv[]) {
 		flash0.otp0 = siemens::esnToOtp(DEFAULT_ESN);
 		flash0.otp1 = siemens::imeiToOtp(DEFAULT_IMEI);
 
-		if (siemens::isRecalculated(fullflash)) {
-			spdlog::info("[otp] Fullflash HASH already matches the default OTP");
-		} else if (program.get<bool>("--siemens-recalc")) {
+		if (program.get<bool>("--siemens-recalc")) {
 			try {
 				std::vector<uint8_t> data;
 				if (!readFile(fullflash, data))

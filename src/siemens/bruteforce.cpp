@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <exception>
 #include <optional>
 #include <string>
 #include <thread>
@@ -19,6 +20,12 @@
 namespace siemens {
 
 static const uint8_t BLOCK5077_TAIL[6] = { 0x3D, 0x06, 0x06, 0x0B, 0x80, 0xF3 };
+static const std::array<uint8_t, 16> RECALCULATED_HASH = {
+	0x54, 0xF8, 0x0A, 0xC1, 0x2A, 0xCD, 0x94, 0xB2, 0xF5, 0xCF, 0xFB, 0x9B, 0xF7, 0xE4, 0xD4, 0x93,
+};
+static const uint32_t RECALCULATED_ESN = 0x12345678;
+static const uint64_t ESN_COUNT = 0x100000000ULL;
+static const uint32_t PROGRESS_INTERVAL = 0x40000;
 
 static CipherKeyBatch buildCipherKeyBatch(const std::array<uint8_t, 64> &key, size_t esnOffset, uint32_t firstCandidate) {
 	CipherKeyBatch keys;
@@ -30,38 +37,68 @@ static CipherKeyBatch buildCipherKeyBatch(const std::array<uint8_t, 64> &key, si
 }
 
 template<typename Match>
-static std::tuple<bool, uint32_t> bruteForceEsn(size_t threadCount, size_t batchSize, Match matches) {
+static std::tuple<bool, uint32_t> bruteForceEsn(
+	size_t threadCount,
+	size_t batchSize,
+	EsnRecoveryStage stage,
+	const EsnProgressCallback &progress,
+	Match matches
+) {
 	if (threadCount == 0)
 		threadCount = std::max<size_t>(1, std::thread::hardware_concurrency());
+	if (progress)
+		progress(stage, 0);
 
 	std::atomic<bool> found(false);
 	std::atomic<uint32_t> result(0);
-	std::vector<std::thread> workers;
-	workers.reserve(threadCount);
-	for (size_t thread = 0; thread < threadCount; thread++) {
-		workers.emplace_back([&, thread]() {
-			uint32_t ticks = 0;
-			uint32_t checkInterval = 0x40000 / batchSize;
-			uint64_t step = threadCount * batchSize;
-			uint64_t firstCandidate = thread * batchSize;
-			for (; firstCandidate < 0x100000000ULL; firstCandidate += step) {
-				if (++ticks >= checkInterval) {
-					ticks = 0;
-					if (found.load(std::memory_order_relaxed))
-						return;
-				}
-
-				auto match = matches((uint32_t) firstCandidate);
-				if (match) {
-					result.store(*match, std::memory_order_relaxed);
-					found.store(true, std::memory_order_release);
+	std::exception_ptr progressError;
+	uint32_t reportedPercent = 0;
+	auto runWorker = [&](size_t thread) {
+		uint32_t ticks = 0;
+		uint32_t checkInterval = PROGRESS_INTERVAL / batchSize;
+		uint64_t step = threadCount * batchSize;
+		uint64_t firstCandidate = thread * batchSize;
+		for (; firstCandidate < ESN_COUNT; firstCandidate += step) {
+			if (++ticks >= checkInterval) {
+				ticks = 0;
+				if (found.load(std::memory_order_relaxed))
 					return;
+				if (progress && thread == 0) {
+					uint32_t percent = (uint32_t) ((firstCandidate * 100) / ESN_COUNT);
+					if (percent > reportedPercent) {
+						reportedPercent = percent;
+						progress(stage, percent);
+					}
 				}
 			}
-		});
+
+			auto match = matches((uint32_t) firstCandidate);
+			if (match) {
+				result.store(*match, std::memory_order_relaxed);
+				found.store(true, std::memory_order_release);
+				return;
+			}
+		}
+	};
+
+	std::vector<std::thread> workers;
+	workers.reserve(threadCount - 1);
+	for (size_t thread = 1; thread < threadCount; thread++)
+		workers.emplace_back(runWorker, thread);
+
+	try {
+		runWorker(0);
+	} catch (...) {
+		progressError = std::current_exception();
+		found.store(true, std::memory_order_release);
 	}
 	for (auto &worker : workers)
 		worker.join();
+
+	if (progressError)
+		std::rethrow_exception(progressError);
+	if (progress && reportedPercent < 100)
+		progress(stage, 100);
 
 	if (!found.load(std::memory_order_acquire))
 		return { false, 0 };
@@ -92,12 +129,17 @@ static std::optional<uint32_t> findMd5Match(
 	return std::nullopt;
 }
 
-static std::tuple<bool, uint32_t> recoverEsnFromHash(const uint8_t *wanted, size_t threadCount) {
+static std::tuple<bool, uint32_t> recoverEsnFromHash(
+	const uint8_t *wanted,
+	size_t threadCount,
+	EsnRecoveryStage stage,
+	const EsnProgressCallback &progress
+) {
 	uint32_t target[4];
 	for (size_t index = 0; index < 4; index++)
 		target[index] = readUInt32LE(wanted + index * 4);
 
-	return bruteForceEsn(threadCount, MD5_BATCH_SIZE, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
+	return bruteForceEsn(threadCount, MD5_BATCH_SIZE, stage, progress, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
 		Md5BlockBatch blocks{};
 		for (size_t lane = 0; lane < MD5_BATCH_SIZE; lane++)
 			blocks[0][lane] = firstCandidate + lane;
@@ -109,7 +151,11 @@ static std::tuple<bool, uint32_t> recoverEsnFromHash(const uint8_t *wanted, size
 	});
 }
 
-static std::tuple<bool, uint32_t> recoverEsnFromBkeyOrHash(const FullflashInfo &info, size_t threadCount) {
+static std::tuple<bool, uint32_t> recoverEsnFromBkeyOrHash(
+	const FullflashInfo &info,
+	size_t threadCount,
+	const EsnProgressCallback &progress
+) {
 	if (info.skey.size() != 4)
 		return { false, 0 };
 
@@ -118,12 +164,13 @@ static std::tuple<bool, uint32_t> recoverEsnFromBkeyOrHash(const FullflashInfo &
 	if (wanted.size() != 16)
 		return { false, 0 };
 	uint32_t skey = readUInt32LE(info.skey.data());
+	EsnRecoveryStage stage = useBkey ? EsnRecoveryStage::BKEY : EsnRecoveryStage::HASH;
 
 	uint32_t target[4];
 	for (size_t index = 0; index < 4; index++)
 		target[index] = readUInt32LE(wanted.data() + index * 4);
 
-	return bruteForceEsn(threadCount, MD5_BATCH_SIZE, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
+	return bruteForceEsn(threadCount, MD5_BATCH_SIZE, stage, progress, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
 		Md5BlockBatch bkeyBlocks{};
 		bkeyBlocks[1].fill(skey);
 		bkeyBlocks[4].fill(0x80);
@@ -153,14 +200,16 @@ static std::tuple<bool, uint32_t> recoverEsnFromSecurityMarker(
 	const std::vector<uint8_t> &marker,
 	const std::string &imei,
 	uint32_t skey,
-	size_t threadCount
+	size_t threadCount,
+	EsnRecoveryStage stage,
+	const EsnProgressCallback &progress
 ) {
 	if (isErasedData(marker.data(), marker.size()))
 		return { false, 0 };
 
 	auto imei8 = packImei(imei);
 	auto keyTemplate = buildCipherKey1(skey, 0, imei8);
-	return bruteForceEsn(threadCount, CIPHER_BATCH_SIZE, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
+	return bruteForceEsn(threadCount, CIPHER_BATCH_SIZE, stage, progress, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
 		std::array<std::array<uint8_t, 8>, CIPHER_BATCH_SIZE> data;
 		auto keys = buildCipherKeyBatch(keyTemplate, 4, firstCandidate);
 		for (size_t lane = 0; lane < CIPHER_BATCH_SIZE; lane++)
@@ -182,7 +231,8 @@ static std::tuple<bool, uint32_t> recoverEsnFromBlock5008(
 	const std::vector<uint8_t> &encrypted,
 	const std::vector<uint8_t> &block5077,
 	const std::string &imei,
-	size_t threadCount
+	size_t threadCount,
+	const EsnProgressCallback &progress
 ) {
 	if (encrypted.size() != 0xE0)
 		return { false, 0 };
@@ -191,7 +241,7 @@ static std::tuple<bool, uint32_t> recoverEsnFromBlock5008(
 
 	bool hasBlock5077 = block5077.size() == 0xE8 && !isErasedData(block5077.data(), block5077.size());
 	auto keyTemplate = buildEepromKey(0, imei);
-	return bruteForceEsn(threadCount, CIPHER_BATCH_SIZE, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
+	auto matches = [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
 		std::array<std::array<uint8_t, 0x20>, CIPHER_BATCH_SIZE> data;
 		auto keys = buildCipherKeyBatch(keyTemplate, 0x30, firstCandidate);
 		for (size_t lane = 0; lane < CIPHER_BATCH_SIZE; lane++)
@@ -217,13 +267,15 @@ static std::tuple<bool, uint32_t> recoverEsnFromBlock5008(
 				return firstCandidate + lane;
 		}
 		return std::nullopt;
-	});
+	};
+	return bruteForceEsn(threadCount, CIPHER_BATCH_SIZE, EsnRecoveryStage::BLOCK_5008, progress, matches);
 }
 
 static std::tuple<bool, uint32_t> recoverEsnFromBlock5077(
 	const std::vector<uint8_t> &encrypted,
 	const std::string &imei,
-	size_t threadCount
+	size_t threadCount,
+	const EsnProgressCallback &progress
 ) {
 	if (encrypted.size() != 0xE8)
 		return { false, 0 };
@@ -231,7 +283,7 @@ static std::tuple<bool, uint32_t> recoverEsnFromBlock5077(
 		return { false, 0 };
 
 	auto keyTemplate = buildEepromKey(0, imei);
-	return bruteForceEsn(threadCount, CIPHER_BATCH_SIZE, [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
+	auto matches = [&](uint32_t firstCandidate) -> std::optional<uint32_t> {
 		std::array<std::array<uint8_t, 0xE8>, CIPHER_BATCH_SIZE> data;
 		auto keys = buildCipherKeyBatch(keyTemplate, 0x30, firstCandidate);
 		for (size_t lane = 0; lane < CIPHER_BATCH_SIZE; lane++)
@@ -245,20 +297,36 @@ static std::tuple<bool, uint32_t> recoverEsnFromBlock5077(
 				return firstCandidate + lane;
 		}
 		return std::nullopt;
-	});
+	};
+	return bruteForceEsn(threadCount, CIPHER_BATCH_SIZE, EsnRecoveryStage::BLOCK_5077, progress, matches);
 }
 
-std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo &info, size_t threadCount) {
+std::tuple<bool, uint32_t> recoverEsn(
+	const Eeprom &eeprom,
+	const FullflashInfo &info,
+	size_t threadCount,
+	const EsnProgressCallback &progress
+) {
+	bool hasKnownHash = info.hash.size() == RECALCULATED_HASH.size() &&
+		std::equal(info.hash.begin(), info.hash.end(), RECALCULATED_HASH.begin());
+	if (hasKnownHash) {
+		if (progress) {
+			progress(EsnRecoveryStage::KNOWN_HASH, 0);
+			progress(EsnRecoveryStage::KNOWN_HASH, 100);
+		}
+		return { true, RECALCULATED_ESN };
+	}
+
 	if (eeprom.hasBlock(5468)) {
 		auto block = eeprom.readBlock(5468);
 		if (block.size() == 0x31 && block[16] == 0x58) {
-			auto result = recoverEsnFromHash(&block[17], threadCount);
+			auto result = recoverEsnFromHash(&block[17], threadCount, EsnRecoveryStage::BLOCK_5468, progress);
 			if (std::get<0>(result))
 				return result;
 		}
 	}
 
-	auto result = recoverEsnFromBkeyOrHash(info, threadCount);
+	auto result = recoverEsnFromBkeyOrHash(info, threadCount, progress);
 	if (std::get<0>(result))
 		return result;
 
@@ -274,7 +342,7 @@ std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo 
 		block5077 = eeprom.readBlock(5077);
 	if (eeprom.hasBlock(5008)) {
 		auto block = eeprom.readBlock(5008);
-		result = recoverEsnFromBlock5008(block, block5077, info.imei, threadCount);
+		result = recoverEsnFromBlock5008(block, block5077, info.imei, threadCount, progress);
 		if (std::get<0>(result))
 			return result;
 	}
@@ -286,7 +354,10 @@ std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo 
 		uint32_t skey = readUInt32LE(info.skey.data());
 		if (block5121.size() >= 8) {
 			std::vector<uint8_t> marker(block5121.begin(), block5121.begin() + 8);
-			result = recoverEsnFromSecurityMarker(marker, info.imei, skey, threadCount);
+			result = recoverEsnFromSecurityMarker(
+				marker, info.imei, skey, threadCount,
+				EsnRecoveryStage::BLOCK_5121, progress
+			);
 			if (std::get<0>(result))
 				return result;
 		}
@@ -295,7 +366,10 @@ std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo 
 			auto block = eeprom.readBlock(5123);
 			if (block.size() >= 12) {
 				std::vector<uint8_t> marker(block.begin() + 4, block.begin() + 12);
-				result = recoverEsnFromSecurityMarker(marker, info.imei, skey, threadCount);
+				result = recoverEsnFromSecurityMarker(
+					marker, info.imei, skey, threadCount,
+					EsnRecoveryStage::BLOCK_5123, progress
+				);
 				if (std::get<0>(result))
 					return result;
 			}
@@ -303,7 +377,7 @@ std::tuple<bool, uint32_t> recoverEsn(const Eeprom &eeprom, const FullflashInfo 
 	}
 
 	if (!block5077.empty()) {
-		result = recoverEsnFromBlock5077(block5077, info.imei, threadCount);
+		result = recoverEsnFromBlock5077(block5077, info.imei, threadCount, progress);
 		if (std::get<0>(result))
 			return result;
 	}
