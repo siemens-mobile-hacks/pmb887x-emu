@@ -62,7 +62,7 @@ void writeEsnCache(const std::string &fullflash, const FullflashInfo &info, uint
 		{ "SKEY", bytesToHex(info.skey.data(), info.skey.size()) },
 	};
 
-	output << cache;
+	output << toml::toml_formatter { cache, toml::format_flags::terse_key_value_pairs } << '\n';
 
 	if (!output)
 		throw std::runtime_error("Can't write ESN cache: " + path);
