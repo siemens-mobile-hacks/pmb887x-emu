@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
 
 	program.add_argument("-f", "--fullflash")
 		.help("Path to the fullflash.bin file")
-		.required()
+		.default_value("")
 		.nargs(1);
 
 	program.add_argument("--rw")
@@ -200,6 +200,11 @@ int main(int argc, char *argv[]) {
 
 	program.add_group("QEMU options");
 
+	program.add_argument("--headless")
+		.help("Run QEMU without a display")
+		.default_value(false)
+		.implicit_value(true);
+
 	program.add_argument("--qemu-monitor")
 		.help("QEMU monitor")
 		.nargs(1);
@@ -272,6 +277,10 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (device.empty()) {
+		if (fullflash.empty()) {
+			spdlog::error("Specify --device or --fullflash");
+			return 1;
+		}
 		auto info = SiemensFW::probeFullflash(fullflash);
 		if (!info) {
 			spdlog::error("Can't detect device from fullflash, specify --device");
@@ -366,7 +375,7 @@ int main(int argc, char *argv[]) {
 				spdlog::error("{}", err.what());
 				return 1;
 			}
-		} else {
+		} else if (!fullflash.empty()) {
 			try {
 				if (auto otp = SiemensFW::recoverOtp(fullflash)) {
 					flash0.otp0 = otp->otp0;
@@ -406,13 +415,20 @@ int main(int argc, char *argv[]) {
 	qemuArgs.emplace_back("-machine");
 	qemuArgs.emplace_back("pmb887x");
 
-	if (rw) {
-		spdlog::warn("Write mode enabled! Your fullflash will be modified!");
-		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,format=raw,file=" + fullflash);
-	} else {
-		qemuArgs.emplace_back("-drive");
-		qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + fullflash);
+	if (program.get<bool>("--headless")) {
+		qemuArgs.emplace_back("-display");
+		qemuArgs.emplace_back("none");
+	}
+
+	if (!fullflash.empty()) {
+		if (rw) {
+			spdlog::warn("Write mode enabled! Your fullflash will be modified!");
+			qemuArgs.emplace_back("-drive");
+			qemuArgs.emplace_back("if=pflash,format=raw,file=" + fullflash);
+		} else {
+			qemuArgs.emplace_back("-drive");
+			qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + fullflash);
+		}
 	}
 
 	if (program.present("--trace"))
