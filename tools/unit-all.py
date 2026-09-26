@@ -23,7 +23,7 @@ def parse_args(argv=None):
         epilog=(
             "examples:\n"
             "  unit-all.py\n"
-            "  unit-all.py -d siemens-el71 dsp-gsm-channel-scan\n"
+            "  unit-all.py -d siemens-el71 dsp-hle-gsm-channel-scan\n"
             "  unit-all.py --no-build stm dmac"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,

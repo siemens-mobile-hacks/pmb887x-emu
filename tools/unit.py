@@ -15,6 +15,10 @@ import tty
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def terminate(signum, _frame):
+    raise SystemExit(128 + signum)
+
+
 def stop(process):
     if process is None:
         return
@@ -79,6 +83,8 @@ def wait_for_test(test, emulator, timeout):
 
 
 def main():
+    signal.signal(signal.SIGTERM, terminate)
+
     parser = argparse.ArgumentParser(
         usage="%(prog)s -d DEVICE [-f FULLFLASH] -u UNIT [-t SECONDS] [--no-build] [-- EMU_ARG ...]",
         description="Build QEMU and run one BSP unit test",
