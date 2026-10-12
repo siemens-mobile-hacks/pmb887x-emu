@@ -1,6 +1,8 @@
 add_executable(
 	unit-tests
 	binary.cpp
+	qemu_args.cpp
+	../src/qemu_args.cpp
 	../src/utils/file.cpp
 )
 target_include_directories(unit-tests PRIVATE "${CMAKE_SOURCE_DIR}/src")

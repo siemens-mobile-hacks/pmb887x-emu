@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "config.h"
+#include "qemu_args.h"
 #include "siemens/fullflash.h"
 #include "siemens/otp.h"
 #include "siemens/recalc.h"
@@ -199,6 +200,11 @@ int main(int argc, char *argv[]) {
 		.nargs(1);
 
 	program.add_group("QEMU options");
+
+	program.add_argument("--realtime")
+		.help("Run QEMU without precise instruction-counted clocks")
+		.default_value(false)
+		.implicit_value(true);
 
 	program.add_argument("--headless")
 		.help("Run QEMU without a display")
@@ -409,8 +415,8 @@ int main(int argc, char *argv[]) {
 
 	qemuArgs.emplace_back(qemuBin);
 
-	qemuArgs.emplace_back("-icount");
-	qemuArgs.emplace_back("precise-clocks=on");
+	auto clockArguments = getQemuClockArguments(program.get<bool>("--realtime"));
+	qemuArgs.insert(qemuArgs.end(), clockArguments.begin(), clockArguments.end());
 
 	qemuArgs.emplace_back("-machine");
 	qemuArgs.emplace_back("pmb887x");

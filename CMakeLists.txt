@@ -32,6 +32,7 @@ add_subdirectory(src/siemens)
 add_executable(
 	emu
 	src/main.cpp
+	src/qemu_args.cpp
 	src/utils/file.cpp
 	src/utils/process.cpp
 	src/utils/string.cpp
