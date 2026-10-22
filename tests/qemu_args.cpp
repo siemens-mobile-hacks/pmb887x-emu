@@ -5,7 +5,6 @@
 #include <string>
 #include <vector>
 
-TEST_CASE("QEMU clock arguments select instruction-counted or realtime mode") {
-	CHECK(getQemuClockArguments(false) == std::vector<std::string>{ "-icount", "precise-clocks=on" });
-	CHECK(getQemuClockArguments(true).empty());
+TEST_CASE("QEMU clock arguments run device timers on the vCPU") {
+	CHECK(getQemuClockArguments() == std::vector<std::string>{ "-accel", "tcg,vcpu-timers=on" });
 }

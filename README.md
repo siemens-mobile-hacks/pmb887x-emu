@@ -24,7 +24,7 @@ You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to r
 
 # Usage
 ```
-Usage: pmb887x-emu [--help] [--version] [--device VAR] --fullflash VAR [--rw] [--flash-0-otp0 VAR] [--flash-0-otp1 VAR] [--flash-0-otp0-file VAR] [--flash-0-otp1-file VAR] [--flash-0-efa-file VAR] [--flash-1-otp0 VAR] [--flash-1-otp1 VAR] [--flash-1-otp0-file VAR] [--flash-1-otp1-file VAR] [--flash-1-efa-file VAR] [--flash-2-otp0 VAR] [--flash-2-otp1 VAR] [--flash-2-otp0-file VAR] [--flash-2-otp1-file VAR] [--flash-2-efa-file VAR] [--flash-3-otp0 VAR] [--flash-3-otp1 VAR] [--flash-3-otp0-file VAR] [--flash-3-otp1-file VAR] [--flash-3-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--siemens-recalc] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--realtime] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
+Usage: pmb887x-emu [--help] [--version] [--device VAR] --fullflash VAR [--rw] [--flash-0-otp0 VAR] [--flash-0-otp1 VAR] [--flash-0-otp0-file VAR] [--flash-0-otp1-file VAR] [--flash-0-efa-file VAR] [--flash-1-otp0 VAR] [--flash-1-otp1 VAR] [--flash-1-otp0-file VAR] [--flash-1-otp1-file VAR] [--flash-1-efa-file VAR] [--flash-2-otp0 VAR] [--flash-2-otp1 VAR] [--flash-2-otp0-file VAR] [--flash-2-otp1-file VAR] [--flash-2-efa-file VAR] [--flash-3-otp0 VAR] [--flash-3-otp1 VAR] [--flash-3-otp0-file VAR] [--flash-3-otp1-file VAR] [--flash-3-efa-file VAR] [--siemens-esn VAR] [--siemens-imei VAR] [--siemens-recalc] [--sim VAR] [--sim-reader-name VAR] [--sim-imsi VAR] [--sim-operator VAR] [--startup VAR] [--serial VAR] [--usartd] [--wait-for-serial] [--gdb] [--trace VAR] [--trace-io VAR] [--trace-log VAR] [--qemu-monitor VAR] [--qemu-run-with-gdb] [--qemu-stop-on-exception] [--qemu-debug VAR]
 
 Generic emulator for PMB887X-based mobile phones.
 
@@ -83,7 +83,6 @@ Trace options (detailed usage):
   --trace-log                             CPU emulation logs only
 
 QEMU options (detailed usage):
-  --realtime                              Run QEMU without precise instruction-counted clocks
   --qemu-monitor                          QEMU monitor
   --qemu-run-with-gdb                     Run emulator using GDB (debug)
   -E, --qemu-stop-on-exception            Stop QEMU on ARM exception

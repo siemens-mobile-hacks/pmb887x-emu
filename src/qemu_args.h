@@ -3,4 +3,4 @@
 #include <string>
 #include <vector>
 
-std::vector<std::string> getQemuClockArguments(bool realtime);
+std::vector<std::string> getQemuClockArguments();

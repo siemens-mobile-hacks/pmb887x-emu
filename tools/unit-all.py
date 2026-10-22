@@ -36,7 +36,6 @@ def parse_args(argv=None):
     )
     parser.add_argument("-t", "--timeout", type=int, help="override every configured timeout")
     parser.add_argument("-n", "--no-build", action="store_true", help="do not build the emulator")
-    parser.add_argument("--realtime", action="store_true", help="run every test without instruction-counted clocks")
     parser.add_argument("-l", "--list", action="store_true", help="list selected tests without running them")
     parser.add_argument(
         "--color",
@@ -132,7 +131,7 @@ def get_fullflash_path(value, config_path):
     return path
 
 
-def build_command(job, config_path, no_build, realtime=False):
+def build_command(job, config_path, no_build):
     fullflash = get_fullflash_path(job["fullflash"], config_path)
     if fullflash is not None and not fullflash.is_file():
         raise ValueError(f"fullflash not found: {fullflash}")
@@ -148,8 +147,6 @@ def build_command(job, config_path, no_build, realtime=False):
     if no_build:
         command.append("--no-build")
     command.extend(["--", "--headless"])
-    if realtime:
-        command.append("--realtime")
     command.extend(job["emulator_args"])
     return command
 
@@ -214,7 +211,7 @@ def run_jobs(args, jobs, skipped):
         title = f"[{index}/{len(jobs)}] {job['test']} ({job['device']})"
         print(color(title, "1;36", colors), flush=True)
         try:
-            command = build_command(job, args.config, not build_pending, args.realtime)
+            command = build_command(job, args.config, not build_pending)
         except ValueError as error:
             print(f"error: {error}", file=sys.stderr)
             failures.append({"test": job["test"], "device": job["device"], "result": "CONFIG"})

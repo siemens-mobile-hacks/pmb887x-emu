@@ -201,11 +201,6 @@ int main(int argc, char *argv[]) {
 
 	program.add_group("QEMU options");
 
-	program.add_argument("--realtime")
-		.help("Run QEMU without precise instruction-counted clocks")
-		.default_value(false)
-		.implicit_value(true);
-
 	program.add_argument("--headless")
 		.help("Run QEMU without a display")
 		.default_value(false)
@@ -415,7 +410,7 @@ int main(int argc, char *argv[]) {
 
 	qemuArgs.emplace_back(qemuBin);
 
-	auto clockArguments = getQemuClockArguments(program.get<bool>("--realtime"));
+	auto clockArguments = getQemuClockArguments();
 	qemuArgs.insert(qemuArgs.end(), clockArguments.begin(), clockArguments.end());
 
 	qemuArgs.emplace_back("-machine");
