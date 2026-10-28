@@ -76,6 +76,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 		--disable-docs
 		--disable-install-blobs
 		--without-default-features
+		-Dbuildtype=release
+		--disable-qom-cast-debug
+		--enable-trace-backends=nop
 		--enable-gtk
 		--enable-pixman
 		--enable-iconv
@@ -145,6 +148,10 @@ else()
 		--disable-docs
 		--disable-install-blobs
 		--without-default-features
+		-Dbuildtype=release
+		--disable-qom-cast-debug
+		--enable-trace-backends=nop
+		--enable-lto
 		--enable-gettext
 		--enable-iconv
 		--enable-pixman
@@ -175,7 +182,7 @@ else()
 	endif()
 
 	if (CMAKE_BUILD_TYPE STREQUAL "Release")
-		SET(QEMU_CONFIGURE_OPTIONS ${QEMU_CONFIGURE_OPTIONS} --enable-lto --enable-strip)
+		SET(QEMU_CONFIGURE_OPTIONS ${QEMU_CONFIGURE_OPTIONS} --enable-strip)
 	endif()
 
 	if (BUILD_STATIC)
