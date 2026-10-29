@@ -210,6 +210,14 @@ int main(int argc, char *argv[]) {
 		.help("QEMU monitor")
 		.nargs(1);
 
+	program.add_argument("--qemu-accel")
+		.help("QEMU -accel options (default: tcg,vcpu-timers=on, or tcg with --qemu-icount)")
+		.nargs(1);
+
+	program.add_argument("--qemu-icount")
+		.help("QEMU -icount options, for example shift=3,sleep=off")
+		.nargs(1);
+
 	program.add_argument("--qemu-run-with-gdb")
 		.help("Run emulator using GDB (debug)")
 		.default_value(false)
@@ -410,7 +418,7 @@ int main(int argc, char *argv[]) {
 
 	qemuArgs.emplace_back(qemuBin);
 
-	auto clockArguments = getQemuClockArguments();
+	auto clockArguments = getQemuClockArguments(program.present("--qemu-accel"), program.present("--qemu-icount"));
 	qemuArgs.insert(qemuArgs.end(), clockArguments.begin(), clockArguments.end());
 
 	qemuArgs.emplace_back("-machine");
