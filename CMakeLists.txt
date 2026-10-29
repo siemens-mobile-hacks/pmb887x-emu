@@ -75,6 +75,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 		--target-list=arm-softmmu
 		--disable-docs
 		--disable-install-blobs
+		--disable-tests
 		--without-default-features
 		-Dbuildtype=release
 		--disable-qom-cast-debug
@@ -147,6 +148,7 @@ else()
 		--disable-werror
 		--disable-docs
 		--disable-install-blobs
+		--disable-tests
 		--without-default-features
 		-Dbuildtype=release
 		--disable-qom-cast-debug
