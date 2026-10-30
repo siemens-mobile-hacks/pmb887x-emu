@@ -210,6 +210,11 @@ int main(int argc, char *argv[]) {
 		.help("QEMU monitor")
 		.nargs(1);
 
+	program.add_argument("--memory-timing")
+		.help("Model cache, memory and peripheral bus stalls")
+		.default_value(false)
+		.implicit_value(true);
+
 	program.add_argument("--qemu-accel")
 		.help("QEMU -accel options (default: tcg,vcpu-timers=on, or tcg with --qemu-icount)")
 		.nargs(1);
@@ -320,6 +325,9 @@ int main(int argc, char *argv[]) {
 
 	if (program.get<bool>("--wait-for-serial"))
 		qemuEnv["PMB887X_WAIT_FOR_SERIAL"] = "1";
+
+	if (program.get<bool>("--memory-timing"))
+		qemuEnv["PMB887X_MEMORY_TIMING"] = "1";
 
 	bool hasOTP = false;
 	std::array<FlashBankOptions, FLASH_BANK_COUNT> flashOptions;
