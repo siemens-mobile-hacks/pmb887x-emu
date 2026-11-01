@@ -46,7 +46,34 @@ pmb887x-emu --device siemens-el71 --fullflash EL71.bin \
     --sim reader --sim-reader-name "Alcor Micro AU9540 00 00"
 ```
 
-Only PC/SC readers are supported.
+### Phone as a SIM reader
+
+A phone running `bsp/apps/sim-reader` acts as a serial GemPC Twin reader for the PC/SC `ccid` driver. Register it
+once in `/etc/reader.conf.d/phone-sim-reader`:
+
+```
+FRIENDLYNAME "Phone SIM reader"
+DEVICENAME /dev/ttyUSB0
+LIBPATH /usr/lib/pcsc/drivers/serial/libccidtwin.so
+```
+
+Boot the reader, restart PC/SC so that it opens the port, and use `--sim reader`:
+
+```bash
+bsp/apps/sim-reader/run.sh
+sudo systemctl restart pcscd
+pcsc_scan -r
+pmb887x-emu --device lg-ke970 --fullflash KE970.bin --sim reader --sim-reader-name "Phone SIM reader 00 00"
+```
+
+The reader keeps the phone awake. Stop PC/SC and power the phone off before booting another program on it:
+
+```bash
+sudo systemctl stop pcscd
+bsp/apps/sim-reader/sim-reader.py off
+```
+
+`sim-reader.py atr` and `sim-reader.py apdu A0A40000023F00` test the reader while PC/SC is stopped.
 
 **APDUs are forwarded without write protection. Use a test SIM.**
 
