@@ -216,7 +216,7 @@ int main(int argc, char *argv[]) {
 		.implicit_value(true);
 
 	program.add_argument("--qemu-accel")
-		.help("QEMU -accel options (default: tcg,vcpu-timers=on, or tcg with --qemu-icount)")
+		.help("QEMU -accel options (default: tcg,vcpu-timers=on,cross-page-links=on, or tcg with --qemu-icount)")
 		.nargs(1);
 
 	program.add_argument("--qemu-icount")

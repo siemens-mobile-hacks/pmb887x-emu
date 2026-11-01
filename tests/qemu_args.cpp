@@ -6,7 +6,7 @@
 #include <vector>
 
 TEST_CASE("QEMU clock arguments run device timers on the vCPU by default") {
-	CHECK(getQemuClockArguments(std::nullopt, std::nullopt) == std::vector<std::string>{ "-accel", "tcg,vcpu-timers=on" });
+	CHECK(getQemuClockArguments(std::nullopt, std::nullopt) == std::vector<std::string>{ "-accel", "tcg,vcpu-timers=on,cross-page-links=on" });
 }
 
 TEST_CASE("QEMU clock arguments pass a custom accelerator unchanged") {

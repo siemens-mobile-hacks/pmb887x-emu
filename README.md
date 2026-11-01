@@ -84,7 +84,7 @@ Trace options (detailed usage):
 
 QEMU options (detailed usage):
   --qemu-monitor                          QEMU monitor
-  --qemu-accel                            QEMU -accel options (default: tcg,vcpu-timers=on, or tcg with --qemu-icount)
+  --qemu-accel                            QEMU -accel options (default: tcg,vcpu-timers=on,cross-page-links=on, or tcg with --qemu-icount)
   --qemu-icount                           QEMU -icount options, for example shift=3,sleep=off
   --qemu-run-with-gdb                     Run emulator using GDB (debug)
   -E, --qemu-stop-on-exception            Stop QEMU on ARM exception
