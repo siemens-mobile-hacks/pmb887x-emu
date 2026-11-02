@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
 
 	argparse::ArgumentParser program("pmb887x-emu", PROJECT_VERSION);
 	program.add_description("Generic emulator for PMB887X-based mobile phones.");
+	program.add_epilog("Arguments after -- are passed to QEMU unchanged.");
 
 	program.add_group("Main options");
 
@@ -237,8 +238,16 @@ int main(int argc, char *argv[]) {
 		.help("QEMU debug options")
 		.nargs(1);
 
+	std::vector<std::string> launcherArgs(argv, argv + argc);
+	std::vector<std::string> extraQemuArgs;
+	auto separator = std::find(launcherArgs.begin(), launcherArgs.end(), "--");
+	if (separator != launcherArgs.end()) {
+		extraQemuArgs.assign(separator + 1, launcherArgs.end());
+		launcherArgs.erase(separator, launcherArgs.end());
+	}
+
 	try {
-		program.parse_args(argc, argv);
+		program.parse_args(launcherArgs);
 	} catch (const std::exception &err) {
 		spdlog::error("{}", err.what());
 		std::cerr << program;
@@ -484,6 +493,8 @@ int main(int argc, char *argv[]) {
 		qemuArgs.emplace_back("-d");
 		qemuArgs.emplace_back(program.get<std::string>("--qemu-debug"));
 	}
+
+	qemuArgs.insert(qemuArgs.end(), extraQemuArgs.begin(), extraQemuArgs.end());
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 	setEnvironmentVariable("GTK_MODULES", "");

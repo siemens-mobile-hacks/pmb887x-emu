@@ -167,7 +167,7 @@ def main():
     ]
     if args.fullflash is not None:
         emulator_command.extend(["--fullflash", args.fullflash.expanduser()])
-    emulator_command.extend([*emulator_args, "--serial", qemu_serial, "-W"])
+    emulator_command.extend(["--serial", qemu_serial, "-W", *emulator_args])
     test_command = [
         sys.executable,
         ROOT / "bsp" / "boot.py",
