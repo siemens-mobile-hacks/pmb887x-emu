@@ -84,6 +84,9 @@ def load_config(path):
         if not isinstance(emulator_args, list) or not all(isinstance(arg, str) for arg in emulator_args):
             raise ValueError(f"test {name} emulator_args must be an array of strings")
 
+        if not isinstance(test.get("audio_capture", False), bool):
+            raise ValueError(f"test {name} audio_capture must be a boolean")
+
     return {"tests": tests, "fullflashes": fullflashes}
 
 
@@ -124,6 +127,7 @@ def select_jobs(config, test_names, device_names, timeout_override=None):
                 "fullflash": config["fullflashes"].get(device),
                 "timeout": timeout,
                 "emulator_args": test.get("emulator_args", []),
+                "audio_capture": test.get("audio_capture", False),
             })
 
     return jobs, skipped
@@ -156,6 +160,8 @@ def build_command(job, config_path, no_build, no_bsp_build=False):
         command.append("--no-build")
     if no_bsp_build:
         command.append("--no-bsp-build")
+    if job["audio_capture"]:
+        command.append("--audio-capture")
     command.extend(["--", "--headless"])
     command.extend(job["emulator_args"])
     return command

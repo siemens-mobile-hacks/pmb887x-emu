@@ -5,9 +5,11 @@ import fcntl
 import os
 from pathlib import Path
 import pty
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import tty
@@ -17,6 +19,8 @@ ROOT = Path(__file__).resolve().parent.parent
 UNIT_ROOT = ROOT / "bsp" / "unit"
 LOCK_PATH = ROOT / "build" / "unit-tests.lock"
 LOCK_HELD_ENV = "PMB887X_UNIT_LOCK_HELD"
+AUDIO_EXPECT_PREFIX = b"# AUDIO-EXPECT: "
+AUDIO_CAPTURE_RATE_HZ = 48000
 
 
 def terminate(signum, _frame):
@@ -65,6 +69,8 @@ def forward_test_output(source, result):
                 result["failed"] = True
             if line.startswith(b"# result: "):
                 result["passed"] = b"PASS" in line and b"(0 failed)" in line
+            if line.startswith(AUDIO_EXPECT_PREFIX):
+                result["audio_expect"].append(line[len(AUDIO_EXPECT_PREFIX):].decode().strip())
 
 
 def wait_for_test(test, emulator, timeout):
@@ -84,6 +90,24 @@ def wait_for_test(test, emulator, timeout):
             print(f"timeout after {timeout} seconds", file=sys.stderr)
             return 124
         time.sleep(min(0.1, remaining))
+
+
+def check_audio(audio_path, expectations):
+    import audio_check
+
+    if not expectations:
+        print("not ok - audio capture requested, but the test printed no AUDIO-EXPECT lines")
+        return False
+    if not audio_path.is_file():
+        print(f"not ok - QEMU wrote no audio to {audio_path}")
+        return False
+
+    passed, messages = audio_check.check_recording(audio_path, expectations)
+    for message in messages:
+        print(f"# audio: {message}")
+    if not passed:
+        print(f"not ok - recorded audio matches AUDIO-EXPECT, kept {audio_path}")
+    return passed
 
 
 def acquire_run_lock():
@@ -133,6 +157,9 @@ def main():
     parser.add_argument("--no-build", action="store_true", help="do not build QEMU")
     parser.add_argument("--no-bsp-build", action="store_true", help="do not build the BSP unit test")
     parser.add_argument(
+        "--audio-capture", action="store_true", help="record QEMU audio and check it against AUDIO-EXPECT lines"
+    )
+    parser.add_argument(
         "emulator_args", nargs=argparse.REMAINDER, metavar="EMU_ARG", help="arguments after -- passed to QEMU"
     )
     args = parser.parse_args()
@@ -168,6 +195,12 @@ def main():
     if args.fullflash is not None:
         emulator_command.extend(["--fullflash", args.fullflash.expanduser()])
     emulator_command.extend(["--serial", qemu_serial, "-W", *emulator_args])
+    audio_path = None
+    if args.audio_capture:
+        audio_path = Path(tempfile.mkdtemp(prefix="unit-audio-")) / "audio.wav"
+        if "--" not in emulator_args:
+            emulator_command.append("--")
+        emulator_command.extend(["-audio", f"driver=wav,path={audio_path},out.frequency={AUDIO_CAPTURE_RATE_HZ}"])
     test_command = [
         sys.executable,
         ROOT / "bsp" / "boot.py",
@@ -179,7 +212,7 @@ def main():
     emulator = None
     test = None
     output_thread = None
-    result = {"failed": False, "passed": False}
+    result = {"failed": False, "passed": False, "audio_expect": []}
     try:
         emulator = subprocess.Popen(emulator_command, cwd=ROOT, start_new_session=True)
         test = subprocess.Popen(test_command, cwd=UNIT_ROOT, start_new_session=True, stdout=subprocess.PIPE)
@@ -194,9 +227,13 @@ def main():
         for descriptor in (qemu_master, qemu_slave, test_master, test_slave):
             os.close(descriptor)
 
+    test_passed = status == 0 and result["passed"] and not result["failed"]
+    audio_passed = audio_path is None or (test_passed and check_audio(audio_path, result["audio_expect"]))
+    if audio_path is not None and (audio_passed or not test_passed):
+        shutil.rmtree(audio_path.parent)
     if status != 0:
         return status
-    return 0 if result["passed"] and not result["failed"] else 1
+    return 0 if test_passed and audio_passed else 1
 
 
 if __name__ == "__main__":
