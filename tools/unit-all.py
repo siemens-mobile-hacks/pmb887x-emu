@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from fnmatch import fnmatchcase
 import os
 from pathlib import Path
@@ -8,7 +9,10 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import tomllib
+
+from unit import LOCK_HELD_ENV, acquire_run_lock, build_units
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -36,6 +40,10 @@ def parse_args(argv=None):
     )
     parser.add_argument("-t", "--timeout", type=int, help="override every configured timeout")
     parser.add_argument("-n", "--no-build", action="store_true", help="do not build the emulator")
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=1,
+        help="run this many tests in parallel; output of each test is printed when it finishes (default: 1)",
+    )
     parser.add_argument("-l", "--list", action="store_true", help="list selected tests without running them")
     parser.add_argument(
         "--color",
@@ -131,7 +139,7 @@ def get_fullflash_path(value, config_path):
     return path
 
 
-def build_command(job, config_path, no_build):
+def build_command(job, config_path, no_build, no_bsp_build=False):
     fullflash = get_fullflash_path(job["fullflash"], config_path)
     if fullflash is not None and not fullflash.is_file():
         raise ValueError(f"fullflash not found: {fullflash}")
@@ -146,6 +154,8 @@ def build_command(job, config_path, no_build):
     command.extend(["--unit", job["test"], "--timeout", str(job["timeout"])])
     if no_build:
         command.append("--no-build")
+    if no_bsp_build:
+        command.append("--no-bsp-build")
     command.extend(["--", "--headless"])
     command.extend(job["emulator_args"])
     return command
@@ -197,6 +207,33 @@ def result_name(returncode):
     return f"EXIT {returncode}"
 
 
+def failed_check_name(line):
+    if not line.startswith(b"not ok "):
+        return None
+    name = line.partition(b" - ")[2]
+    if not name:
+        return None
+    return re.sub(rb"\x1b\[[0-9;]*m", b"", name).decode("utf-8", "replace").strip()
+
+
+def job_failure(job, returncode, failed_checks):
+    result = result_name(returncode)
+    if returncode == 1 and failed_checks:
+        result = failed_checks[0]
+        if len(failed_checks) > 1:
+            result += f" (+{len(failed_checks) - 1})"
+    return {"test": job["test"], "device": job["device"], "result": result}
+
+
+def print_summary(failures, passed, skipped, colors, interrupted):
+    print()
+    print_failures(failures, colors)
+    print(f"Result: {passed} passed, {len(failures)} failed, {len(skipped)} skipped")
+    if interrupted:
+        return 130
+    return 1 if failures else 0
+
+
 def run_jobs(args, jobs, skipped):
     colors = use_color(args.color)
     failures = []
@@ -224,11 +261,9 @@ def run_jobs(args, jobs, skipped):
             for line in process.stdout:
                 sys.stdout.buffer.write(line)
                 sys.stdout.buffer.flush()
-                if line.startswith(b"not ok "):
-                    name = line.partition(b" - ")[2]
-                    if name:
-                        name = re.sub(rb"\x1b\[[0-9;]*m", b"", name).decode("utf-8", "replace").strip()
-                        failed_checks.append(name)
+                name = failed_check_name(line)
+                if name is not None:
+                    failed_checks.append(name)
             returncode = process.wait()
         except KeyboardInterrupt:
             if process is not None:
@@ -245,23 +280,86 @@ def run_jobs(args, jobs, skipped):
         if returncode == 0:
             passed += 1
         else:
-            result = result_name(returncode)
-            if returncode == 1 and failed_checks:
-                result = failed_checks[0]
-                if len(failed_checks) > 1:
-                    result += f" (+{len(failed_checks) - 1})"
-            failures.append({
-                "test": job["test"],
-                "device": job["device"],
-                "result": result,
-            })
+            failures.append(job_failure(job, returncode, failed_checks))
 
-    print()
-    print_failures(failures, colors)
-    print(f"Result: {passed} passed, {len(failures)} failed, {len(skipped)} skipped")
-    if interrupted:
-        return 130
-    return 1 if failures else 0
+    return print_summary(failures, passed, skipped, colors, interrupted)
+
+
+def build_parallel_jobs(args, jobs):
+    if not args.no_build and subprocess.run([ROOT / "tools" / "build.sh"], cwd=ROOT).returncode != 0:
+        return False
+    units_by_device = {}
+    for job in jobs:
+        units = units_by_device.setdefault(job["device"], [])
+        if job["test"] not in units:
+            units.append(job["test"])
+    for device, units in units_by_device.items():
+        if not build_units(device, units, os.cpu_count()):
+            return False
+    return True
+
+
+def run_job_buffered(command, processes, lock):
+    process = subprocess.Popen(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    with lock:
+        processes.add(process)
+    try:
+        output = process.stdout.read()
+        return process.wait(), output
+    finally:
+        process.stdout.close()
+        with lock:
+            processes.discard(process)
+
+
+def run_jobs_parallel(args, jobs, skipped):
+    colors = use_color(args.color)
+    failures = []
+    passed = 0
+    interrupted = False
+
+    for name, reason in skipped:
+        print(color(f"SKIP {name}: {reason}", "1;33", colors))
+    if not build_parallel_jobs(args, jobs):
+        failures = [{"test": job["test"], "device": job["device"], "result": "BUILD"} for job in jobs]
+        return print_summary(failures, passed, skipped, colors, interrupted)
+
+    processes = set()
+    lock = threading.Lock()
+    pool = ThreadPoolExecutor(max_workers=args.jobs)
+    futures = {}
+    for job in jobs:
+        try:
+            command = build_command(job, args.config, True, True)
+        except ValueError as error:
+            print(f"error: {error}", file=sys.stderr)
+            failures.append({"test": job["test"], "device": job["device"], "result": "CONFIG"})
+            continue
+        futures[pool.submit(run_job_buffered, command, processes, lock)] = job
+
+    try:
+        for finished, future in enumerate(as_completed(futures), 1):
+            job = futures[future]
+            returncode, output = future.result()
+            title = f"[{finished}/{len(futures)}] {job['test']} ({job['device']})"
+            print(color(title, "1;36", colors), flush=True)
+            sys.stdout.buffer.write(output)
+            sys.stdout.buffer.flush()
+            if returncode == 0:
+                passed += 1
+                continue
+            failed_checks = [name for line in output.splitlines(keepends=True)
+                if (name := failed_check_name(line)) is not None]
+            failures.append(job_failure(job, returncode, failed_checks))
+    except KeyboardInterrupt:
+        interrupted = True
+        pool.shutdown(wait=False, cancel_futures=True)
+        with lock:
+            for process in processes:
+                process.send_signal(signal.SIGINT)
+    pool.shutdown(wait=True)
+
+    return print_summary(failures, passed, skipped, colors, interrupted)
 
 
 def main(argv=None):
@@ -269,6 +367,8 @@ def main(argv=None):
     try:
         if args.timeout is not None and args.timeout <= 0:
             raise ValueError("--timeout must be positive")
+        if args.jobs <= 0:
+            raise ValueError("--jobs must be positive")
         config = load_config(args.config)
         jobs, skipped = select_jobs(config, args.tests, args.device, args.timeout)
     except (OSError, tomllib.TOMLDecodeError, ValueError) as error:
@@ -287,6 +387,12 @@ def main(argv=None):
         print("error: no tests match the selection", file=sys.stderr)
         return 2
 
+    run_lock = acquire_run_lock()
+    if run_lock is None:
+        return 2
+    os.environ[LOCK_HELD_ENV] = "1"
+    if args.jobs > 1:
+        return run_jobs_parallel(args, jobs, skipped)
     return run_jobs(args, jobs, skipped)
 
 

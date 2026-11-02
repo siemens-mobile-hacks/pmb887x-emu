@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import fcntl
 import os
 from pathlib import Path
 import pty
@@ -13,6 +14,9 @@ import tty
 
 
 ROOT = Path(__file__).resolve().parent.parent
+UNIT_ROOT = ROOT / "bsp" / "unit"
+LOCK_PATH = ROOT / "build" / "unit-tests.lock"
+LOCK_HELD_ENV = "PMB887X_UNIT_LOCK_HELD"
 
 
 def terminate(signum, _frame):
@@ -82,11 +86,43 @@ def wait_for_test(test, emulator, timeout):
         time.sleep(min(0.1, remaining))
 
 
+def acquire_run_lock():
+    LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock = open(LOCK_PATH, "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        lock.close()
+        print("error: another unit.py or unit-all.py run is in progress", file=sys.stderr)
+        return None
+    return lock
+
+
+def unit_build_dir(device):
+    return UNIT_ROOT / "build" / device
+
+
+def build_units(device, units, jobs=None):
+    build_dir = unit_build_dir(device)
+    configure_command = [
+        "cmake", "-B", build_dir,
+        f"-DBOARD={device}",
+        "-DBOOT=extram",
+        "-DTEST_COLOR=ON",
+    ]
+    build_command = ["cmake", "--build", build_dir, "--target", *units]
+    if jobs is not None:
+        build_command.extend(["--parallel", str(jobs)])
+    if subprocess.run(configure_command, cwd=UNIT_ROOT).returncode != 0:
+        return False
+    return subprocess.run(build_command, cwd=UNIT_ROOT).returncode == 0
+
+
 def main():
     signal.signal(signal.SIGTERM, terminate)
 
     parser = argparse.ArgumentParser(
-        usage="%(prog)s -d DEVICE [-f FULLFLASH] -u UNIT [-t SECONDS] [--no-build] [-- EMU_ARG ...]",
+        usage="%(prog)s -d DEVICE [-f FULLFLASH] -u UNIT [-t SECONDS] [--no-build] [--no-bsp-build] [-- EMU_ARG ...]",
         description="Build QEMU and run one BSP unit test",
         epilog="example: unit.py -d siemens-el71 -f EL71.bin -u stm -- --trace cpu",
     )
@@ -95,6 +131,7 @@ def main():
     parser.add_argument("-u", "--unit", required=True, help="BSP unit-test target")
     parser.add_argument("-t", "--timeout", type=int, default=120, help="test timeout in seconds (default: 120)")
     parser.add_argument("--no-build", action="store_true", help="do not build QEMU")
+    parser.add_argument("--no-bsp-build", action="store_true", help="do not build the BSP unit test")
     parser.add_argument(
         "emulator_args", nargs=argparse.REMAINDER, metavar="EMU_ARG", help="arguments after -- passed to QEMU"
     )
@@ -103,20 +140,16 @@ def main():
         parser.error("--timeout must be positive")
     emulator_args = args.emulator_args[1:] if args.emulator_args[:1] == ["--"] else args.emulator_args
 
+    if os.environ.get(LOCK_HELD_ENV) is None:
+        run_lock = acquire_run_lock()
+        if run_lock is None:
+            return 2
+
     if not args.no_build and subprocess.run([ROOT / "tools" / "build.sh"], cwd=ROOT).returncode != 0:
         return 2
 
-    unit_root = ROOT / "bsp" / "unit"
-    build_dir = unit_root / "build" / args.device
-    configure_command = [
-        "cmake", "-B", build_dir,
-        f"-DBOARD={args.device}",
-        "-DBOOT=extram",
-        "-DTEST_COLOR=ON",
-    ]
-    if subprocess.run(configure_command, cwd=unit_root).returncode != 0:
-        return 2
-    if subprocess.run(["cmake", "--build", build_dir, "--target", args.unit], cwd=unit_root).returncode != 0:
+    build_dir = unit_build_dir(args.device)
+    if not args.no_bsp_build and not build_units(args.device, [args.unit]):
         return 2
 
     qemu_master, qemu_slave = pty.openpty()
@@ -149,7 +182,7 @@ def main():
     result = {"failed": False, "passed": False}
     try:
         emulator = subprocess.Popen(emulator_command, cwd=ROOT, start_new_session=True)
-        test = subprocess.Popen(test_command, cwd=unit_root, start_new_session=True, stdout=subprocess.PIPE)
+        test = subprocess.Popen(test_command, cwd=UNIT_ROOT, start_new_session=True, stdout=subprocess.PIPE)
         output_thread = threading.Thread(target=forward_test_output, args=(test.stdout, result))
         output_thread.start()
         status = wait_for_test(test, emulator, args.timeout)
