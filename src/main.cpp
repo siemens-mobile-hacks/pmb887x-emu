@@ -24,12 +24,20 @@
 
 static std::string getBoardConfigPath(const std::string &device);
 static std::string getQemuBinaryPath();
-static std::string getSimDevice(
-	const std::string &sim,
-	const std::string &simOperator,
-	const std::string &simImsi,
-	const std::string &simReaderName
-);
+struct SimOptions {
+	std::string source;
+	std::string readerName;
+	std::string imsi;
+	std::string operatorCode;
+	std::string ki;
+	std::string pin1;
+	std::string pin2;
+	std::string puk1;
+	std::string puk2;
+	std::string storage;
+};
+
+static std::string getSimDevice(const SimOptions &sim);
 
 struct FlashBankOptions {
 	std::string otp0;
@@ -159,6 +167,36 @@ int main(int argc, char *argv[]) {
 		.nargs(1)
 		.default_value("00101");
 
+	program.add_argument("--sim-ki")
+		.help("Virtual SIM Ki for the 3GPP XOR test algorithm (32 hex digits; 000102...0F by default)")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--sim-pin1")
+		.help("Enable virtual SIM PIN1 with this value (4 to 8 digits)")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--sim-pin2")
+		.help("Virtual SIM PIN2 (4 to 8 digits; 0000 by default)")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--sim-puk1")
+		.help("Virtual SIM PUK1 (8 digits; 12345678 by default)")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--sim-puk2")
+		.help("Virtual SIM PUK2 (8 digits; 12345678 by default)")
+		.nargs(1)
+		.default_value("");
+
+	program.add_argument("--sim-storage")
+		.help("JSON file that keeps virtual SIM contents and PIN state between runs")
+		.nargs(1)
+		.default_value("");
+
 	program.add_group("Startup options");
 
 	program.add_argument("--startup")
@@ -269,22 +307,39 @@ int main(int argc, char *argv[]) {
 	auto siemensEsn = program.get<std::string>("--siemens-esn");
 	auto siemensImei = program.get<std::string>("--siemens-imei");
 	auto fullflash = program.get<std::string>("--fullflash");
-	auto sim = program.get<std::string>("--sim");
-	auto simReaderName = program.get<std::string>("--sim-reader-name");
-	auto simImsi = program.get<std::string>("--sim-imsi");
-	auto simOperator = program.get<std::string>("--sim-operator");
+	SimOptions sim = {
+		.source = program.get<std::string>("--sim"),
+		.readerName = program.get<std::string>("--sim-reader-name"),
+		.imsi = program.get<std::string>("--sim-imsi"),
+		.operatorCode = program.get<std::string>("--sim-operator"),
+		.ki = program.get<std::string>("--sim-ki"),
+		.pin1 = program.get<std::string>("--sim-pin1"),
+		.pin2 = program.get<std::string>("--sim-pin2"),
+		.puk1 = program.get<std::string>("--sim-puk1"),
+		.puk2 = program.get<std::string>("--sim-puk2"),
+		.storage = program.get<std::string>("--sim-storage"),
+	};
 	auto startup = program.get<std::string>("--startup");
 	bool rw = program.get<bool>("--rw");
 
-	if (sim != "virtual" && sim != "none" && sim != "reader") {
+	if (sim.source != "virtual" && sim.source != "none" && sim.source != "reader") {
 		spdlog::error("--sim must be virtual, none, or reader");
 		return 1;
 	}
 
-	if (!simReaderName.empty() && sim != "reader") {
+	if (!sim.readerName.empty() && sim.source != "reader") {
 		spdlog::error("--sim-reader-name can only be used with --sim reader");
 		return 1;
 	}
+
+	bool hasVirtualSimOptions = !sim.ki.empty() || !sim.pin1.empty() || !sim.pin2.empty() ||
+		!sim.puk1.empty() || !sim.puk2.empty() || !sim.storage.empty();
+	if (hasVirtualSimOptions && sim.source != "virtual") {
+		spdlog::error("--sim-ki, --sim-pin*, --sim-puk* and --sim-storage can only be used with --sim virtual");
+		return 1;
+	}
+	if (!sim.storage.empty())
+		sim.storage = std::filesystem::absolute(sim.storage).string();
 
 	if (startup.empty()) {
 		spdlog::error("--startup must not be empty");
@@ -450,7 +505,7 @@ int main(int argc, char *argv[]) {
 	if (program.present("--trace-log"))
 		qemuEnv["PMB887X_TRACE_LOG"] = program.get<std::string>("--trace-log");
 
-	auto simDevice = getSimDevice(sim, simOperator, simImsi, simReaderName);
+	auto simDevice = getSimDevice(sim);
 	if (!simDevice.empty()) {
 		qemuArgs.emplace_back("-device");
 		qemuArgs.emplace_back(simDevice);
@@ -518,22 +573,29 @@ static std::string escapeQemuOptionValue(const std::string &value) {
 	return escaped;
 }
 
-static std::string getSimDevice(
-	const std::string &sim,
-	const std::string &simOperator,
-	const std::string &simImsi,
-	const std::string &simReaderName
-) {
-	if (sim == "virtual") {
-		std::string device = "gsm-sim,operator=" + escapeQemuOptionValue(simOperator);
-		if (!simImsi.empty())
-			device += ",imsi=" + escapeQemuOptionValue(simImsi);
+static void appendQemuOption(std::string &device, const char *name, const std::string &value) {
+	if (!value.empty())
+		device += std::string(",") + name + "=" + escapeQemuOptionValue(value);
+}
+
+static std::string getSimDevice(const SimOptions &sim) {
+	if (sim.source == "virtual") {
+		std::string device = "gsm-sim";
+		appendQemuOption(device, "operator", sim.operatorCode);
+		appendQemuOption(device, "imsi", sim.imsi);
+		appendQemuOption(device, "ki", sim.ki);
+		appendQemuOption(device, "pin1", sim.pin1);
+		if (!sim.pin1.empty())
+			device += ",pin1-enabled=on";
+		appendQemuOption(device, "pin2", sim.pin2);
+		appendQemuOption(device, "puk1", sim.puk1);
+		appendQemuOption(device, "puk2", sim.puk2);
+		appendQemuOption(device, "storage", sim.storage);
 		return device;
 	}
-	if (sim == "reader") {
+	if (sim.source == "reader") {
 		std::string device = "iso7816-host-card";
-		if (!simReaderName.empty())
-			device += ",reader=" + escapeQemuOptionValue(simReaderName);
+		appendQemuOption(device, "reader", sim.readerName);
 		return device;
 	}
 	return "";
