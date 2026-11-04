@@ -3,7 +3,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cctype>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -25,7 +24,12 @@
 
 static std::string getBoardConfigPath(const std::string &device);
 static std::string getQemuBinaryPath();
-static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode);
+static std::string getSimDevice(
+	const std::string &sim,
+	const std::string &simOperator,
+	const std::string &simImsi,
+	const std::string &simReaderName
+);
 
 struct FlashBankOptions {
 	std::string otp0;
@@ -38,9 +42,6 @@ struct FlashBankOptions {
 static constexpr char DEFAULT_IMEI[] = "490154203237518";
 static constexpr char DEFAULT_ESN[] = "12345678";
 
-static constexpr size_t SIM_IMSI_LENGTH = 15;
-static constexpr size_t SIM_OPERATOR_MIN_LENGTH = 5;
-static constexpr size_t SIM_OPERATOR_MAX_LENGTH = 6;
 static constexpr size_t FLASH_BANK_COUNT = 4;
 
 int main(int argc, char *argv[]) {
@@ -290,15 +291,6 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	if (sim == "virtual") {
-		try {
-			validateSimIdentity(simImsi, simOperator);
-		} catch (const std::invalid_argument &err) {
-			spdlog::error("{}", err.what());
-			return 1;
-		}
-	}
-
 	if (device.empty()) {
 		if (fullflash.empty()) {
 			spdlog::error("Specify --device or --fullflash");
@@ -320,14 +312,6 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 	qemuEnv["PMB887X_STARTUP"] = startup;
-	qemuEnv["PMB887X_SIM"] = sim;
-	if (sim == "virtual") {
-		qemuEnv["PMB887X_SIM_OPERATOR"] = simOperator;
-		if (!simImsi.empty())
-			qemuEnv["PMB887X_SIM_IMSI"] = simImsi;
-	} else if (!simReaderName.empty()) {
-		qemuEnv["PMB887X_SIM_READER_NAME"] = simReaderName;
-	}
 
 	if (program.get<bool>("--qemu-stop-on-exception"))
 		qemuEnv["QEMU_ARM_STOP_ON_EXCP"] = "1";
@@ -466,6 +450,12 @@ int main(int argc, char *argv[]) {
 	if (program.present("--trace-log"))
 		qemuEnv["PMB887X_TRACE_LOG"] = program.get<std::string>("--trace-log");
 
+	auto simDevice = getSimDevice(sim, simOperator, simImsi, simReaderName);
+	if (!simDevice.empty()) {
+		qemuArgs.emplace_back("-device");
+		qemuArgs.emplace_back(simDevice);
+	}
+
 	if (program.get<bool>("--gdb")) {
 		qemuArgs.emplace_back("-s");
 		qemuArgs.emplace_back("-S");
@@ -518,21 +508,35 @@ int main(int argc, char *argv[]) {
 	}
 }
 
-static void validateSimIdentity(const std::string &imsi, const std::string &operatorCode) {
-	if (operatorCode.size() != SIM_OPERATOR_MIN_LENGTH && operatorCode.size() != SIM_OPERATOR_MAX_LENGTH)
-		throw std::invalid_argument("--sim-operator must contain MCC+MNC as 5 or 6 decimal digits");
-	if (!std::all_of(operatorCode.begin(), operatorCode.end(), [](uint8_t value) { return std::isdigit(value); }))
-		throw std::invalid_argument("--sim-operator must contain MCC+MNC as 5 or 6 decimal digits");
+static std::string escapeQemuOptionValue(const std::string &value) {
+	std::string escaped;
+	for (char c : value) {
+		escaped += c;
+		if (c == ',')
+			escaped += ',';
+	}
+	return escaped;
+}
 
-	if (imsi.empty())
-		return;
-
-	if (imsi.size() != SIM_IMSI_LENGTH)
-		throw std::invalid_argument("--sim-imsi must contain exactly 15 decimal digits");
-	if (!std::all_of(imsi.begin(), imsi.end(), [](uint8_t value) { return std::isdigit(value); }))
-		throw std::invalid_argument("--sim-imsi must contain exactly 15 decimal digits");
-	if (!imsi.starts_with(operatorCode))
-		throw std::invalid_argument("--sim-imsi must start with the MCC+MNC specified by --sim-operator");
+static std::string getSimDevice(
+	const std::string &sim,
+	const std::string &simOperator,
+	const std::string &simImsi,
+	const std::string &simReaderName
+) {
+	if (sim == "virtual") {
+		std::string device = "gsm-sim,operator=" + escapeQemuOptionValue(simOperator);
+		if (!simImsi.empty())
+			device += ",imsi=" + escapeQemuOptionValue(simImsi);
+		return device;
+	}
+	if (sim == "reader") {
+		std::string device = "iso7816-host-card";
+		if (!simReaderName.empty())
+			device += ",reader=" + escapeQemuOptionValue(simReaderName);
+		return device;
+	}
+	return "";
 }
 
 static std::string getBoardConfigPath(const std::string &device) {
