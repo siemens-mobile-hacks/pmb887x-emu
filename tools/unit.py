@@ -148,7 +148,7 @@ def main():
     parser = argparse.ArgumentParser(
         usage="%(prog)s -d DEVICE [-f FULLFLASH] -u UNIT [-t SECONDS] [--no-build] [--no-bsp-build] [-- EMU_ARG ...]",
         description="Build QEMU and run one BSP unit test",
-        epilog="example: unit.py -d siemens-el71 -f EL71.bin -u stm -- --trace cpu",
+        epilog="example: unit.py -d siemens-el71 -f EL71.bin -u stm -- --trace STM",
     )
     parser.add_argument("-d", "--device", required=True, help="device slug, for example siemens-el71")
     parser.add_argument("-f", "--fullflash", type=Path, help="fullflash image")

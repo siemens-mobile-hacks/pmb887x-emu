@@ -144,7 +144,7 @@ bsp/apps/sim-reader/sim-reader.py off
 
 **APDUs are forwarded without write protection. Use a test SIM.**
 
-Enable tracing with `--trace sim-card`.
+Enable tracing with `--trace SIM_SLOT`.
 
 - `has no available card`: insert the SIM before starting the emulator.
 - Repeated `RST`/ATR without APDUs: the phone rejected the card.

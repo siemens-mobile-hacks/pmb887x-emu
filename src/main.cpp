@@ -228,16 +228,21 @@ int main(int argc, char *argv[]) {
 		.implicit_value(true);
 
 	program.add_argument("-D", "--trace")
-		.help("CPU IO + CPU emulation log")
+		.help("Debug channels for logs and register accesses, for example '*,-DSP.*' or 'USART0,LCD0'")
 		.nargs(1);
 
 	program.add_argument("--trace-io")
-		.help("I/O tracing")
+		.help("Debug channels for register accesses only")
 		.nargs(1);
 
 	program.add_argument("--trace-log")
-		.help("CPU emulation logs only")
+		.help("Debug channels for logs only")
 		.nargs(1);
+
+	program.add_argument("--trace-time")
+		.help("Prefix debug lines with the emulated time")
+		.default_value(false)
+		.implicit_value(true);
 
 	program.add_group("QEMU options");
 
@@ -496,14 +501,22 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	if (program.present("--trace"))
-		qemuEnv["PMB887X_TRACE_ALL"] = program.get<std::string>("--trace");
-
+	std::vector<std::string> debugChannels;
+	if (program.present("--trace")) {
+		std::string channels = program.get<std::string>("--trace");
+		debugChannels.emplace_back("log=" + channels);
+		debugChannels.emplace_back("io=" + channels);
+	}
 	if (program.present("--trace-io"))
-		qemuEnv["PMB887X_TRACE_IO"] = program.get<std::string>("--trace-io");
-
+		debugChannels.emplace_back("io=" + program.get<std::string>("--trace-io"));
 	if (program.present("--trace-log"))
-		qemuEnv["PMB887X_TRACE_LOG"] = program.get<std::string>("--trace-log");
+		debugChannels.emplace_back("log=" + program.get<std::string>("--trace-log"));
+	if (program.get<bool>("--trace-time"))
+		debugChannels.emplace_back("time=on");
+	if (!debugChannels.empty()) {
+		qemuArgs.emplace_back("-debug-channels");
+		qemuArgs.emplace_back(joinStrings(debugChannels, ","));
+	}
 
 	auto simDevice = getSimDevice(sim);
 	if (!simDevice.empty()) {
