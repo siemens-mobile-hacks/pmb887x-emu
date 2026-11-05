@@ -89,7 +89,7 @@ QEMU options (detailed usage):
   --qemu-icount                           QEMU -icount options, for example shift=3,sleep=off
   --qemu-run-with-gdb                     Run emulator using GDB (debug)
   -E, --qemu-stop-on-exception            Stop QEMU on ARM exception
-  --qemu-debug                            QEMU debug options
+  --qemu-debug                            QEMU -d log items added to cpu_reset,cpu_exit,guest_errors,unimp, for example 'int'
 ```
 
 **Some useful examples:**

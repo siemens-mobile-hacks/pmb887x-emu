@@ -279,7 +279,7 @@ int main(int argc, char *argv[]) {
 		.implicit_value(true);
 
 	program.add_argument("--qemu-debug")
-		.help("QEMU debug options")
+		.help("QEMU -d log items added to cpu_reset,cpu_exit,guest_errors,unimp, for example 'int'")
 		.nargs(1);
 
 	std::vector<std::string> launcherArgs(argv, argv + argc);
@@ -547,10 +547,11 @@ int main(int argc, char *argv[]) {
 		qemuArgs.emplace_back(program.get<std::string>("--qemu-monitor"));
 	}
 
-	if (program.present("--qemu-debug")) {
-		qemuArgs.emplace_back("-d");
-		qemuArgs.emplace_back(program.get<std::string>("--qemu-debug"));
-	}
+	std::string qemuDebug = "cpu_reset,cpu_exit,guest_errors,unimp";
+	if (program.present("--qemu-debug"))
+		qemuDebug += "," + program.get<std::string>("--qemu-debug");
+	qemuArgs.emplace_back("-d");
+	qemuArgs.emplace_back(qemuDebug);
 
 	qemuArgs.insert(qemuArgs.end(), extraQemuArgs.begin(), extraQemuArgs.end());
 
