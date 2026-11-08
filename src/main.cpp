@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
 	program.add_group("Accessory options");
 
 	program.add_argument("--accessory")
-		.help("Accessory from the board config plugged into the system connector (default: data-cable)")
+		.help("Accessory from the board config plugged into the system connector")
 		.nargs(1);
 
 	program.add_group("Serial options");

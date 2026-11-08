@@ -72,7 +72,7 @@ Startup options (detailed usage):
   --startup                               Startup scenario from the board config [nargs=0..1] [default: "ONLINE"]
 
 Accessory options (detailed usage):
-  --accessory                             Accessory from the board config plugged into the system connector (default: data-cable)
+  --accessory                             Accessory from the board config plugged into the system connector
 
 Serial options (detailed usage):
   --serial                                Connect host serial port to QEMU
@@ -205,13 +205,17 @@ Startup keys are pressed when firmware execution begins. The release countdown s
 # Accessories
 
 Use `--accessory NAME` to select what is plugged into the system connector at boot.
-`data-cable` is used by default; `none` leaves the connector empty.
+The default is `data-cable` on Siemens boards and `none` on LG boards; `none` leaves the connector empty.
 
 | Siemens boards | Accessories |
 |----------------|-------------|
 | E71, EL71, M72, S68, CL61 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `usb-cable-nc`, `boot-box`, `tty`, `music-cable`, `headset-mono`, `headset-stereo`, `atc-device` |
 | C81, M81, S75, SL75 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
 | C65, C72, C75, CX65, CX70, M65, ME75, S65, SL65, CX75, M75 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
+
+| LG boards | Accessories |
+|-----------|-------------|
+| KE800, KE970 | `none`, `headset-stereo` |
 
 Other boards have no accessories yet.
 
