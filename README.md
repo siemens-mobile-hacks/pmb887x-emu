@@ -206,7 +206,13 @@ Startup keys are pressed when firmware execution begins. The release countdown s
 
 Use `--accessory NAME` to select what is plugged into the system connector at boot.
 `data-cable` is used by default; `none` leaves the connector empty.
-Siemens EL71, E71, M72, S68 and CL61 also provide `headset-mono` and `headset-stereo`; other boards have no accessories yet.
+
+| Siemens boards | Accessories |
+|----------------|-------------|
+| E71, EL71, M72, S68, CL61, C81, M81, S75, SL75 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `usb-cable-nc`, `boot-box`, `tty`, `music-cable`, `headset-mono`, `headset-stereo`, `atc-device` |
+| C65, C72, C75, CX65, CX70, M65, ME75, S65, SL65, CX75, M75 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
+
+Other boards have no accessories yet.
 
 # Debug output
 
