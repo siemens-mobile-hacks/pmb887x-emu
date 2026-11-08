@@ -71,6 +71,9 @@ SIM options (detailed usage):
 Startup options (detailed usage):
   --startup                               Startup scenario from the board config [nargs=0..1] [default: "ONLINE"]
 
+Accessory options (detailed usage):
+  --accessory                             Accessory from the board config plugged into the system connector (default: data-cable)
+
 Serial options (detailed usage):
   --serial                                Connect host serial port to QEMU
   --usartd                                Connect to usartd.pl in QEMU
@@ -198,6 +201,12 @@ Use `--startup NAME` to select a startup scenario. `ONLINE` is used by default. 
 `PTEST` for the service-mode key combination and `OFFLINE` for starting without pressed keys.
 
 Startup keys are pressed when firmware execution begins. The release countdown starts when the keypad becomes ready.
+
+# Accessories
+
+Use `--accessory NAME` to select what is plugged into the system connector at boot.
+`data-cable` is used by default; `none` leaves the connector empty.
+Siemens EL71, E71, M72, S68 and CL61 also provide `headset-mono` and `headset-stereo`; other boards have no accessories yet.
 
 # Debug output
 

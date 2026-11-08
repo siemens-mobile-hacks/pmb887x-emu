@@ -204,6 +204,12 @@ int main(int argc, char *argv[]) {
 		.nargs(1)
 		.default_value("ONLINE");
 
+	program.add_group("Accessory options");
+
+	program.add_argument("--accessory")
+		.help("Accessory from the board config plugged into the system connector (default: data-cable)")
+		.nargs(1);
+
 	program.add_group("Serial options");
 
 	program.add_argument("--serial")
@@ -516,6 +522,11 @@ int main(int argc, char *argv[]) {
 	if (!debugChannels.empty()) {
 		qemuArgs.emplace_back("-debug-channels");
 		qemuArgs.emplace_back(joinStrings(debugChannels, ","));
+	}
+
+	if (program.present("--accessory")) {
+		qemuArgs.emplace_back("-global");
+		qemuArgs.emplace_back("accessory-connector.accessory=" + program.get<std::string>("--accessory"));
 	}
 
 	auto simDevice = getSimDevice(sim);
