@@ -209,9 +209,9 @@ The default is `data-cable` on Siemens boards and `none` on LG boards; `none` le
 
 | Siemens boards | Accessories |
 |----------------|-------------|
-| E71, EL71, M72, S68, CL61 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `usb-cable-nc`, `boot-box`, `tty`, `music-cable`, `headset-mono`, `headset-stereo`, `atc-device` |
-| C81, M81, S75, SL75 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
-| C65, C72, C75, CX65, CX70, M65, ME75, S65, SL65, CX75, M75 | `none`, `data-cable`, `serial-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
+| E71, EL71, M72, S68, CL61 | `none`, `data-cable`, `usb-cable`, `usb-cable-nc`, `boot-box`, `tty`, `music-cable`, `headset-mono`, `headset-stereo`, `atc-device` |
+| C81, M81, S75, SL75 | `none`, `data-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
+| C65, C72, C75, CX65, CX70, M65, ME75, S65, SL65, CX75, M75 | `none`, `data-cable`, `usb-cable`, `boot-box`, `desktop-charger`, `tty`, `tty-x55`, `music-set`, `headset-mono`, `headset-stereo`, `atc-device`, `a2i-device` |
 
 | LG boards | Accessories |
 |-----------|-------------|
