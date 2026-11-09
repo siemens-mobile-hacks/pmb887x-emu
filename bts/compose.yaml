@@ -1,0 +1,52 @@
+x-osmocom: &osmocom
+  image: pmb887x-bts
+  build: .
+  pull_policy: build
+  network_mode: host
+  volumes:
+    - ./config:/etc/osmocom:ro
+
+services:
+  stp:
+    <<: *osmocom
+    command: osmo-stp -c /etc/osmocom/osmo-stp.cfg
+  hlr:
+    <<: *osmocom
+    command: osmo-hlr -c /etc/osmocom/osmo-hlr.cfg
+  mgw:
+    <<: *osmocom
+    command: osmo-mgw -c /etc/osmocom/osmo-mgw.cfg
+  msc:
+    <<: *osmocom
+    command: osmo-msc -c /etc/osmocom/osmo-msc.cfg
+  cbc:
+    <<: *osmocom
+    command: osmo-cbc -c /etc/osmocom/osmo-cbc.cfg
+  bsc:
+    <<: *osmocom
+    command: osmo-bsc -c /etc/osmocom/osmo-bsc.cfg
+  bts:
+    <<: *osmocom
+    command: osmo-bts-trx -c /etc/osmocom/osmo-bts-trx.cfg
+    volumes:
+      - ./config:/etc/osmocom:ro
+      - pcu-socket:/tmp
+  pcu:
+    <<: *osmocom
+    command: osmo-pcu -c /etc/osmocom/osmo-pcu.cfg
+    volumes:
+      - ./config:/etc/osmocom:ro
+      - pcu-socket:/tmp
+  sgsn:
+    <<: *osmocom
+    command: osmo-sgsn -c /etc/osmocom/osmo-sgsn.cfg
+  ggsn:
+    <<: *osmocom
+    command: osmo-ggsn -c /etc/osmocom/osmo-ggsn.cfg
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+
+volumes:
+  pcu-socket:
