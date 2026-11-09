@@ -21,6 +21,12 @@ LOCK_PATH = ROOT / "build" / "unit-tests.lock"
 LOCK_HELD_ENV = "PMB887X_UNIT_LOCK_HELD"
 AUDIO_EXPECT_PREFIX = b"# AUDIO-EXPECT: "
 AUDIO_CAPTURE_RATE_HZ = 48000
+BSP_ROOT = ROOT / "bsp"
+E2E_ROOT = BSP_ROOT / "e2e"
+E2E_RUNNERS = {
+    ".ts": [E2E_ROOT / "node_modules" / ".bin" / "tsx"],
+    ".py": [sys.executable, "-u"],
+}
 
 
 def terminate(signum, _frame):
@@ -71,6 +77,19 @@ def forward_test_output(source, result):
                 result["passed"] = b"PASS" in line and b"(0 failed)" in line
             if line.startswith(AUDIO_EXPECT_PREFIX):
                 result["audio_expect"].append(line[len(AUDIO_EXPECT_PREFIX):].decode().strip())
+
+
+def forward_e2e_output(source):
+    for line in source:
+        sys.stdout.buffer.write(b"# " + line.rstrip(b"\n") + b"\n")
+        sys.stdout.buffer.flush()
+
+
+def print_e2e_result(unit, passed):
+    if passed:
+        print(f"ok 1 - {unit}\n1..1\n# result: PASS (0 failed)", flush=True)
+    else:
+        print(f"not ok 1 - {unit}\n1..1\n# result: FAIL (1 failed)", flush=True)
 
 
 def wait_for_test(test, emulator, timeout):
@@ -142,17 +161,44 @@ def build_units(device, units, jobs=None):
     return subprocess.run(build_command, cwd=UNIT_ROOT).returncode == 0
 
 
+def split_test_name(test):
+    kind, _, name = test.rpartition("/")
+    return kind or "unit", name
+
+
+def find_e2e_test(name):
+    for suffix in E2E_RUNNERS:
+        path = E2E_ROOT / name / (name + suffix)
+        if path.is_file():
+            return path
+    return None
+
+
+def install_typescript_dependencies():
+    install_marker = BSP_ROOT / "node_modules" / ".modules.yaml"
+    lockfile = BSP_ROOT / "pnpm-lock.yaml"
+    if install_marker.is_file() and lockfile.stat().st_mtime_ns <= install_marker.stat().st_mtime_ns:
+        return True
+    command = ["pnpm", "--dir", BSP_ROOT, "install", "--frozen-lockfile", "--prefer-offline"]
+    return subprocess.run(command, cwd=ROOT).returncode == 0
+
+
 def main():
     signal.signal(signal.SIGTERM, terminate)
 
     parser = argparse.ArgumentParser(
         usage="%(prog)s -d DEVICE [-f FULLFLASH] -u UNIT [-t SECONDS] [--no-build] [--no-bsp-build] [-- EMU_ARG ...]",
-        description="Build QEMU and run one BSP unit test",
-        epilog="example: unit.py -d siemens-el71 -f EL71.bin -u stm -- --trace STM",
+        description="Build QEMU and run one BSP unit test or e2e test",
+        epilog=(
+            "examples:\n"
+            "  unit.py -d siemens-el71 -f EL71.bin -u stm -- --trace STM\n"
+            "  unit.py -d siemens-el71 -f EL71.bin -u e2e/gsm-creg"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("-d", "--device", required=True, help="device slug, for example siemens-el71")
     parser.add_argument("-f", "--fullflash", type=Path, help="fullflash image")
-    parser.add_argument("-u", "--unit", required=True, help="BSP unit-test target")
+    parser.add_argument("-u", "--unit", required=True, help="[unit/]NAME for a BSP unit test, e2e/NAME for an e2e test")
     parser.add_argument("-t", "--timeout", type=int, default=120, help="test timeout in seconds (default: 120)")
     parser.add_argument("--no-build", action="store_true", help="do not build QEMU")
     parser.add_argument("--no-bsp-build", action="store_true", help="do not build the BSP unit test")
@@ -167,6 +213,19 @@ def main():
         parser.error("--timeout must be positive")
     emulator_args = args.emulator_args[1:] if args.emulator_args[:1] == ["--"] else args.emulator_args
 
+    kind, test_name = split_test_name(args.unit)
+    if kind not in ("unit", "e2e"):
+        parser.error(f"unknown test kind {kind!r}; use unit/NAME or e2e/NAME")
+    e2e_test = None
+    if kind == "e2e":
+        e2e_test = find_e2e_test(test_name)
+        if e2e_test is None:
+            parser.error(f"e2e test not found: {E2E_ROOT / test_name / test_name}.ts or .py")
+        if args.audio_capture:
+            parser.error("--audio-capture is valid only for BSP unit tests")
+        if args.fullflash is None:
+            parser.error("e2e tests need --fullflash")
+
     if os.environ.get(LOCK_HELD_ENV) is None:
         run_lock = acquire_run_lock()
         if run_lock is None:
@@ -176,7 +235,9 @@ def main():
         return 2
 
     build_dir = unit_build_dir(args.device)
-    if not args.no_bsp_build and not build_units(args.device, [args.unit]):
+    if e2e_test is None and not args.no_bsp_build and not build_units(args.device, [test_name]):
+        return 2
+    if e2e_test is not None and e2e_test.suffix == ".ts" and not install_typescript_dependencies():
         return 2
 
     qemu_master, qemu_slave = pty.openpty()
@@ -194,20 +255,30 @@ def main():
     ]
     if args.fullflash is not None:
         emulator_command.extend(["--fullflash", args.fullflash.expanduser()])
-    emulator_command.extend(["--serial", qemu_serial, "-W", *emulator_args])
+    emulator_command.extend(["--serial", qemu_serial])
+    if e2e_test is None:
+        emulator_command.append("-W")
+    emulator_command.extend(emulator_args)
     audio_path = None
     if args.audio_capture:
         audio_path = Path(tempfile.mkdtemp(prefix="unit-audio-")) / "audio.wav"
         if "--" not in emulator_args:
             emulator_command.append("--")
         emulator_command.extend(["-audio", f"driver=wav,path={audio_path},out.frequency={AUDIO_CAPTURE_RATE_HZ}"])
-    test_command = [
-        sys.executable,
-        ROOT / "bsp" / "boot.py",
-        build_dir / (args.unit + ".bin"),
-        "--no-ign",
-        "--device", test_serial,
-    ]
+    if e2e_test is None:
+        test_command = [
+            sys.executable,
+            ROOT / "bsp" / "boot.py",
+            build_dir / (test_name + ".bin"),
+            "--no-ign",
+            "--device", test_serial,
+        ]
+        test_cwd = UNIT_ROOT
+        test_stderr = None
+    else:
+        test_command = [*E2E_RUNNERS[e2e_test.suffix], e2e_test, test_serial]
+        test_cwd = e2e_test.parent
+        test_stderr = subprocess.STDOUT
 
     emulator = None
     test = None
@@ -215,8 +286,13 @@ def main():
     result = {"failed": False, "passed": False, "audio_expect": []}
     try:
         emulator = subprocess.Popen(emulator_command, cwd=ROOT, start_new_session=True)
-        test = subprocess.Popen(test_command, cwd=UNIT_ROOT, start_new_session=True, stdout=subprocess.PIPE)
-        output_thread = threading.Thread(target=forward_test_output, args=(test.stdout, result))
+        test = subprocess.Popen(
+            test_command, cwd=test_cwd, start_new_session=True, stdout=subprocess.PIPE, stderr=test_stderr
+        )
+        if e2e_test is None:
+            output_thread = threading.Thread(target=forward_test_output, args=(test.stdout, result))
+        else:
+            output_thread = threading.Thread(target=forward_e2e_output, args=(test.stdout,))
         output_thread.start()
         status = wait_for_test(test, emulator, args.timeout)
     finally:
@@ -226,6 +302,10 @@ def main():
             output_thread.join()
         for descriptor in (qemu_master, qemu_slave, test_master, test_slave):
             os.close(descriptor)
+
+    if e2e_test is not None:
+        print_e2e_result(args.unit, status == 0)
+        return status
 
     test_passed = status == 0 and result["passed"] and not result["failed"]
     audio_passed = audio_path is None or (test_passed and check_audio(audio_path, result["audio_expect"]))

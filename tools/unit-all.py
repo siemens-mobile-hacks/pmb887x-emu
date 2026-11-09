@@ -12,28 +12,30 @@ import sys
 import threading
 import tomllib
 
-from unit import LOCK_HELD_ENV, acquire_run_lock, build_units
+from unit import E2E_ROOT, LOCK_HELD_ENV, acquire_run_lock, build_units, find_e2e_test, split_test_name
+from unit import install_typescript_dependencies
 
 
 ROOT = Path(__file__).resolve().parent.parent
 UNIT_RUNNER = ROOT / "tools" / "unit.py"
-DEFAULT_CONFIG = ROOT / "bsp" / "unit" / "tests.toml"
+TEST_CONFIGS = {"": ROOT / "bsp" / "unit" / "tests.toml", "e2e/": E2E_ROOT / "tests.toml"}
 DEFAULT_TIMEOUT = 120
+SETTINGS_PATH = ROOT / "tools" / "unit.toml"
 
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(
-        description="Run BSP unit tests from a TOML configuration",
+        description="Run BSP unit and e2e tests",
         epilog=(
             "examples:\n"
             "  unit-all.py\n"
             "  unit-all.py -d siemens-el71 dsp-hle-gsm-channel-scan\n"
-            "  unit-all.py --no-build stm dmac"
+            "  unit-all.py --no-build stm dmac\n"
+            "  unit-all.py 'e2e/*'"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("tests", nargs="*", help="test names or glob patterns; all tests by default")
-    parser.add_argument("-c", "--config", type=Path, default=DEFAULT_CONFIG, help="TOML configuration file")
+    parser.add_argument("tests", nargs="*", help="[unit/]NAME or e2e/NAME names or glob patterns; all tests by default")
     parser.add_argument(
         "-d", "--device", action="append",
         help="device to run named tests on, or filter for all tests; may be repeated",
@@ -54,16 +56,17 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
-def load_config(path):
-    with path.open("rb") as config_file:
-        tests = tomllib.load(config_file)
-    settings_path = path.with_name("settings.toml")
+def load_config():
+    tests = {}
+    for prefix, path in TEST_CONFIGS.items():
+        with path.open("rb") as config_file:
+            tests.update({prefix + name: test for name, test in tomllib.load(config_file).items()})
     fullflashes = {}
-    if settings_path.exists():
-        with settings_path.open("rb") as settings_file:
+    if SETTINGS_PATH.exists():
+        with SETTINGS_PATH.open("rb") as settings_file:
             fullflashes = tomllib.load(settings_file).get("fullflashes", {})
 
-    if not isinstance(tests, dict) or not tests:
+    if not tests:
         raise ValueError("configuration has no tests")
     if not isinstance(fullflashes, dict) or not all(isinstance(value, str) for value in fullflashes.values()):
         raise ValueError("fullflashes must map devices to paths")
@@ -94,7 +97,7 @@ def select_jobs(config, test_names, device_names, timeout_override=None):
     tests = config["tests"]
     selected_tests = []
     for pattern in test_names:
-        matches = [name for name in tests if fnmatchcase(name, pattern)]
+        matches = [name for name in tests if fnmatchcase(name, pattern.removeprefix("unit/"))]
         if not matches:
             raise ValueError(f"no tests match: {pattern}")
         for name in matches:
@@ -124,7 +127,7 @@ def select_jobs(config, test_names, device_names, timeout_override=None):
             jobs.append({
                 "test": name,
                 "device": device,
-                "fullflash": config["fullflashes"].get(device),
+                "fullflash": get_fullflash_path(config["fullflashes"].get(device)),
                 "timeout": timeout,
                 "emulator_args": test.get("emulator_args", []),
                 "audio_capture": test.get("audio_capture", False),
@@ -133,18 +136,18 @@ def select_jobs(config, test_names, device_names, timeout_override=None):
     return jobs, skipped
 
 
-def get_fullflash_path(value, config_path):
+def get_fullflash_path(value):
     if value is None:
         return None
 
     path = Path(value).expanduser()
     if not path.is_absolute():
-        path = config_path.parent / path
+        path = SETTINGS_PATH.parent / path
     return path
 
 
-def build_command(job, config_path, no_build, no_bsp_build=False):
-    fullflash = get_fullflash_path(job["fullflash"], config_path)
+def build_command(job, no_build, no_bsp_build=False):
+    fullflash = job["fullflash"]
     if fullflash is not None and not fullflash.is_file():
         raise ValueError(f"fullflash not found: {fullflash}")
 
@@ -254,7 +257,7 @@ def run_jobs(args, jobs, skipped):
         title = f"[{index}/{len(jobs)}] {job['test']} ({job['device']})"
         print(color(title, "1;36", colors), flush=True)
         try:
-            command = build_command(job, args.config, not build_pending)
+            command = build_command(job, not build_pending)
         except ValueError as error:
             print(f"error: {error}", file=sys.stderr)
             failures.append({"test": job["test"], "device": job["device"], "result": "CONFIG"})
@@ -295,14 +298,20 @@ def build_parallel_jobs(args, jobs):
     if not args.no_build and subprocess.run([ROOT / "tools" / "build.sh"], cwd=ROOT).returncode != 0:
         return False
     units_by_device = {}
+    has_typescript_tests = False
     for job in jobs:
+        kind, name = split_test_name(job["test"])
+        if kind == "e2e":
+            e2e_test = find_e2e_test(name)
+            has_typescript_tests |= e2e_test is not None and e2e_test.suffix == ".ts"
+            continue
         units = units_by_device.setdefault(job["device"], [])
-        if job["test"] not in units:
-            units.append(job["test"])
+        if name not in units:
+            units.append(name)
     for device, units in units_by_device.items():
         if not build_units(device, units, os.cpu_count()):
             return False
-    return True
+    return not has_typescript_tests or install_typescript_dependencies()
 
 
 def run_job_buffered(command, processes, lock):
@@ -336,7 +345,7 @@ def run_jobs_parallel(args, jobs, skipped):
     futures = {}
     for job in jobs:
         try:
-            command = build_command(job, args.config, True, True)
+            command = build_command(job, True, True)
         except ValueError as error:
             print(f"error: {error}", file=sys.stderr)
             failures.append({"test": job["test"], "device": job["device"], "result": "CONFIG"})
@@ -375,7 +384,7 @@ def main(argv=None):
             raise ValueError("--timeout must be positive")
         if args.jobs <= 0:
             raise ValueError("--jobs must be positive")
-        config = load_config(args.config)
+        config = load_config()
         jobs, skipped = select_jobs(config, args.tests, args.device, args.timeout)
     except (OSError, tomllib.TOMLDecodeError, ValueError) as error:
         print(f"error: {error}", file=sys.stderr)
