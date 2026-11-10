@@ -192,7 +192,7 @@ def main():
         epilog=(
             "examples:\n"
             "  unit.py -d siemens-el71 -f EL71.bin -u stm -- --trace STM\n"
-            "  unit.py -d siemens-el71 -f EL71.bin -u e2e/gsm-creg"
+            "  unit.py -d siemens-el71 -f EL71.bin -u e2e/gsm-ppp -- --gsm-trxmux 127.0.0.1:5750"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
