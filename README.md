@@ -74,6 +74,9 @@ Startup options (detailed usage):
 Accessory options (detailed usage):
   --accessory                             Accessory from the board config plugged into the system connector
 
+GSM options (detailed usage):
+  --gsm-osmotrx                           Act as the transceiver of osmo-bts-trx: HOST:PORT for the CLOCK, TRXC, and TRXD ports PORT..PORT+2
+
 Serial options (detailed usage):
   --serial                                Connect host serial port to QEMU
   --usartd                                Connect to usartd.pl in QEMU
@@ -218,6 +221,19 @@ The default is `data-cable` on Siemens boards and `none` on LG boards; `none` le
 | KE800, KE970 | `none`, `headset-stereo` |
 
 Other boards have no accessories yet.
+
+# GSM network
+
+Without options the phone sees a built-in beacon cell: FCCH and SCH on ARFCN 5, no system information.
+
+`--gsm-osmotrx HOST:PORT` connects the phone as the transceiver of `osmo-bts-trx`, for example to the Osmocom network in `bts/`:
+
+```sh
+(cd bts && docker compose up -d)
+build/pmb887x-emu -f EL71.bin --gsm-osmotrx 127.0.0.1:5700
+```
+
+Only the downlink works so far; the phone does not register yet.
 
 # Debug output
 

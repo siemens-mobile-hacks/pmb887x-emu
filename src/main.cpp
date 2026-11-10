@@ -210,6 +210,12 @@ int main(int argc, char *argv[]) {
 		.help("Accessory from the board config plugged into the system connector")
 		.nargs(1);
 
+	program.add_group("GSM options");
+
+	program.add_argument("--gsm-osmotrx")
+		.help("Act as the transceiver of osmo-bts-trx: HOST:PORT for the CLOCK, TRXC, and TRXD ports PORT..PORT+2")
+		.nargs(1);
+
 	program.add_group("Serial options");
 
 	program.add_argument("--serial")
@@ -488,8 +494,21 @@ int main(int argc, char *argv[]) {
 	auto clockArguments = getQemuClockArguments(program.present("--qemu-accel"), program.present("--qemu-icount"));
 	qemuArgs.insert(qemuArgs.end(), clockArguments.begin(), clockArguments.end());
 
+	std::string machine = "pmb887x";
+	if (auto osmotrx = program.present("--gsm-osmotrx")) {
+		size_t colon = osmotrx->rfind(':');
+		if (colon == std::string::npos) {
+			spdlog::error("--gsm-osmotrx expects HOST:PORT");
+			return 1;
+		}
+		qemuArgs.emplace_back("-object");
+		qemuArgs.emplace_back("gsm-osmotrx,id=gsm0,address=" + osmotrx->substr(0, colon) +
+			",base-port=" + osmotrx->substr(colon + 1));
+		machine += ",gsm-network=gsm0";
+	}
+
 	qemuArgs.emplace_back("-machine");
-	qemuArgs.emplace_back("pmb887x");
+	qemuArgs.emplace_back(machine);
 
 	if (program.get<bool>("--headless")) {
 		qemuArgs.emplace_back("-display");
