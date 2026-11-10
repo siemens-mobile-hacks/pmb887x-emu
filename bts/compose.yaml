@@ -25,6 +25,11 @@ services:
   bsc:
     <<: *osmocom
     command: osmo-bsc -c /etc/osmocom/osmo-bsc.cfg
+  trxmux:
+    <<: *osmocom
+    command: python3 /opt/trxmux/trxmux.py
+    volumes:
+      - ./trxmux:/opt/trxmux:ro
   bts:
     <<: *osmocom
     command: osmo-bts-trx -c /etc/osmocom/osmo-bts-trx.cfg

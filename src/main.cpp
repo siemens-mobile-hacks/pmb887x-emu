@@ -212,8 +212,12 @@ int main(int argc, char *argv[]) {
 
 	program.add_group("GSM options");
 
-	program.add_argument("--gsm-osmotrx")
+	auto &gsmNetwork = program.add_mutually_exclusive_group();
+	gsmNetwork.add_argument("--gsm-osmotrx")
 		.help("Act as the transceiver of osmo-bts-trx: HOST:PORT for the CLOCK, TRXC, and TRXD ports PORT..PORT+2")
+		.nargs(1);
+	gsmNetwork.add_argument("--gsm-trxmux")
+		.help("Join the cell of a TRX multiplexer shared by several emulators: HOST:PORT")
 		.nargs(1);
 
 	program.add_group("Serial options");
@@ -495,15 +499,18 @@ int main(int argc, char *argv[]) {
 	qemuArgs.insert(qemuArgs.end(), clockArguments.begin(), clockArguments.end());
 
 	std::string machine = "pmb887x";
-	if (auto osmotrx = program.present("--gsm-osmotrx")) {
-		size_t colon = osmotrx->rfind(':');
+	bool trxmux = program.is_used("--gsm-trxmux");
+	auto endpoint = program.present(trxmux ? "--gsm-trxmux" : "--gsm-osmotrx");
+	if (endpoint) {
+		size_t colon = endpoint->rfind(':');
 		if (colon == std::string::npos) {
-			spdlog::error("--gsm-osmotrx expects HOST:PORT");
+			spdlog::error("--gsm-osmotrx and --gsm-trxmux expect HOST:PORT");
 			return 1;
 		}
+		std::string portProperty = trxmux ? "mux-port" : "base-port";
 		qemuArgs.emplace_back("-object");
-		qemuArgs.emplace_back("gsm-osmotrx,id=gsm0,address=" + osmotrx->substr(0, colon) +
-			",base-port=" + osmotrx->substr(colon + 1));
+		qemuArgs.emplace_back("gsm-osmotrx,id=gsm0,address=" + endpoint->substr(0, colon) + "," + portProperty + "=" +
+			endpoint->substr(colon + 1));
 		machine += ",gsm-network=gsm0";
 	}
 

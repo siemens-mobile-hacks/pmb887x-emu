@@ -224,16 +224,18 @@ Other boards have no accessories yet.
 
 # GSM network
 
-Without options the phone sees a built-in beacon cell: FCCH and SCH on ARFCN 5, no system information.
+Without options the phone sees a beacon cell on ARFCN 5 without system information.
 
-`--gsm-osmotrx HOST:PORT` connects the phone as the transceiver of `osmo-bts-trx`, for example to the Osmocom network in `bts/`:
+The Osmocom network from `bts/`:
 
 ```sh
 (cd bts && docker compose up -d)
-build/pmb887x-emu -f EL71.bin --gsm-osmotrx 127.0.0.1:5700
+build/pmb887x-emu -f EL71.bin --gsm-trxmux 127.0.0.1:5750
+build/pmb887x-emu -f EL71.bin --gsm-trxmux 127.0.0.1:5750 --sim-imsi 001010000000002
 ```
 
-Only the downlink works so far; the phone does not register yet.
+- `--gsm-trxmux HOST:PORT`: join the shared cell; give each phone its own `--sim-imsi`.
+- `--gsm-osmotrx HOST:PORT`: act as the TRX of `osmo-bts-trx` directly, one phone only (`127.0.0.1:5700` after `docker compose stop trxmux`).
 
 # Debug output
 
