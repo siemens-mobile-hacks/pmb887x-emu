@@ -2,12 +2,27 @@ x-osmocom: &osmocom
   image: pmb887x-bts
   build: .
   pull_policy: build
-  network_mode: host
+  network_mode: service:net
   restart: unless-stopped
   volumes:
     - ./config:/etc/osmocom:ro
 
 services:
+  net:
+    image: pmb887x-bts
+    build: .
+    pull_policy: build
+    restart: unless-stopped
+    init: true
+    command: sh -c "nft -f /etc/osmocom/nat.nft && exec sleep infinity"
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      net.ipv4.ip_forward: 1
+    ports:
+      - 127.0.0.1:5750:5750/udp
+    volumes:
+      - ./config:/etc/osmocom:ro
   stp:
     <<: *osmocom
     command: osmo-stp -c /etc/osmocom/osmo-stp.cfg

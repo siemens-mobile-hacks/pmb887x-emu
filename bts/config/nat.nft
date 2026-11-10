@@ -1,0 +1,6 @@
+table ip gprs {
+	chain postrouting {
+		type nat hook postrouting priority srcnat;
+		ip saddr 172.16.32.0/24 oifname "eth0" masquerade
+	}
+}

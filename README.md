@@ -235,7 +235,7 @@ build/pmb887x-emu -f EL71.bin --gsm-trxmux 127.0.0.1:5750 --sim-imsi 00101000000
 ```
 
 - `--gsm-trxmux HOST:PORT`: join the shared cell; give each phone its own `--sim-imsi`.
-- `--gsm-osmotrx HOST:PORT`: act as the TRX of `osmo-bts-trx` directly, one phone only (`127.0.0.1:5700` after `docker compose stop trxmux`).
+- `--gsm-osmotrx HOST:PORT`: act as the TRX of an `osmo-bts-trx` running outside `bts/`, one phone only.
 
 # Debug output
 

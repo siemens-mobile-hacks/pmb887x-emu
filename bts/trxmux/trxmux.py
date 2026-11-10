@@ -36,7 +36,7 @@ CLOCK, CONTROL, DATA = range(3)
 
 
 class TrxMux:
-    def __init__(self, address, base_port, client_port):
+    def __init__(self, address, base_port, client_address, client_port):
         self.loop = asyncio.get_running_loop()
         self.start_ns = time.monotonic_ns()
         self.powered = False
@@ -45,7 +45,7 @@ class TrxMux:
         self.tsc = 0
         self.clients = {}
         self.bts = [self.open_socket(address, base_port + i, base_port + BTS_PORT_OFFSET + i) for i in range(3)]
-        self.client_socket = self.open_socket(address, client_port, None)
+        self.client_socket = self.open_socket(client_address, client_port, None)
         self.loop.add_reader(self.bts[CONTROL], self.read_control)
         self.loop.add_reader(self.bts[DATA], self.read_downlink)
         self.loop.add_reader(self.client_socket, self.read_client)
@@ -148,11 +148,12 @@ async def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--address", default="127.0.0.1")
     parser.add_argument("--base-port", type=int, default=5700)
+    parser.add_argument("--client-address", default="0.0.0.0")
     parser.add_argument("--client-port", type=int, default=5750)
     args = parser.parse_args()
 
-    TrxMux(args.address, args.base_port, args.client_port)
-    print(f"trxmux: BTS on {args.address}:{args.base_port}, clients on {args.address}:{args.client_port}", flush=True)
+    TrxMux(args.address, args.base_port, args.client_address, args.client_port)
+    print(f"trxmux: BTS on {args.address}:{args.base_port}, clients on {args.client_address}:{args.client_port}", flush=True)
     await asyncio.Event().wait()
 
 

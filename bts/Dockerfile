@@ -20,5 +20,5 @@ RUN apt-get install --no-install-recommends -y dpkg-dev \
 FROM osmocom
 
 COPY --from=osmo-sgsn /build/osmo-sgsn_*.deb /tmp/
-RUN apt-get install --no-install-recommends -y osmo-bsc osmo-bts-trx osmo-cbc osmo-ggsn osmo-hlr osmo-mgw osmo-msc osmo-pcu osmo-stp python3 /tmp/osmo-sgsn_*.deb \
+RUN apt-get install --no-install-recommends -y osmo-bsc osmo-bts-trx osmo-cbc osmo-ggsn osmo-hlr osmo-mgw osmo-msc osmo-pcu osmo-stp nftables python3 /tmp/osmo-sgsn_*.deb \
 	&& rm -rf /tmp/*.deb /var/lib/apt/lists/*
