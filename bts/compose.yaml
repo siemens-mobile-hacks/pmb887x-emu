@@ -3,6 +3,7 @@ x-osmocom: &osmocom
   build: .
   pull_policy: build
   network_mode: host
+  restart: unless-stopped
   volumes:
     - ./config:/etc/osmocom:ro
 
