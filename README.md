@@ -45,26 +45,35 @@ LG phones need `--device` and an EFA image: see [LG fullflash](docs/usage.md#rea
 
 # Supported hardware
 **Siemens SG2 platform**
-| Phone              | Emulator     |
-|--------------------|--------------|
-| BenQ-Siemens E71   | siemens-e71  |
-| BenQ-Siemens EL71  | siemens-el71 |
-| BenQ-Siemens C1F0  | siemens-el71 |
-| BenQ-Siemens CL61  | siemens-cl61 |
-| BenQ-Siemens C81   | siemens-c81  |
-| BenQ-Siemens M81   | siemens-m81  |
-| BenQ-Siemens S68   | siemens-s68  |
-| Siemens S75        | siemens-s75  |
-| Siemens SL75       | siemens-sl75 |
+| Phone              | Emulator      |
+|--------------------|---------------|
+| BenQ-Siemens E71   | siemens-e71   |
+| BenQ-Siemens EL71  | siemens-el71  |
+| BenQ-Siemens C1F0  | siemens-el71  |
+| BenQ-Siemens CL61  | siemens-cl61  |
+| BenQ-Siemens CL61A | siemens-cl61a |
+| BenQ-Siemens C81   | siemens-c81   |
+| BenQ-Siemens M72   | siemens-m72   |
+| BenQ-Siemens M81   | siemens-m81   |
+| BenQ-Siemens S68   | siemens-s68   |
+| Siemens S75        | siemens-s75   |
+| Siemens SL75       | siemens-sl75  |
 
 **Siemens SGL platform**
 | Phone              | Emulator     |
 |--------------------|--------------|
-| Siemens CX75       | siemens-cx75 |
+| Siemens C65        | siemens-c65  |
 | Siemens CX65       | siemens-cx65 |
+| Siemens M65        | siemens-m65  |
+| Siemens S65        | siemens-s65  |
+| Siemens SL65       | siemens-sl65 |
+| Siemens SK65       | siemens-sk65 |
 | Siemens CX70       | siemens-cx70 |
 | Siemens C72        | siemens-c72  |
 | Siemens C75        | siemens-c75  |
+| Siemens CX75       | siemens-cx75 |
+| Siemens M75        | siemens-m75  |
+| Siemens ME75       | siemens-me75 |
 
 **LG SG2 platform**
 | Phone                         | Emulator     |
