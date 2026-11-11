@@ -16,3 +16,6 @@
 [submodule "third_party/spdlog"]
 	path = third_party/spdlog
 	url = https://github.com/gabime/spdlog
+[submodule "bts"]
+	path = bts
+	url = https://github.com/siemens-mobile-hacks/bts-emulator
