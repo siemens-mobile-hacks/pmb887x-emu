@@ -4,8 +4,8 @@ class Pmb887xEmu < Formula
   url "https://github.com/siemens-mobile-hacks/pmb887x-emu.git",
       tag:      "RELEASE_TAG_NAME",
       revision: "RELEASE_TAG_HASH"
-  license "MIT"
-  head "https://github.com/siemens-mobile-hacks/pmb887x-emu.git", branch: "main"
+  license "GPL-2.0-only"
+  head "https://github.com/siemens-mobile-hacks/pmb887x-emu.git", branch: "master"
 
   livecheck do
     url :stable
@@ -14,31 +14,26 @@ class Pmb887xEmu < Formula
 
   depends_on "cmake" => :build
   depends_on "coreutils" => :build
-  depends_on "libtool" => :build
-  depends_on "meson" => :build
   depends_on "ninja" => :build
   depends_on "pkgconf" => :build
   depends_on "python@3.14" => :build
   depends_on "capstone"
+  depends_on "gettext"
   depends_on "glib"
-  depends_on "jpeg-turbo"
-  depends_on "libpng"
-  depends_on "lzo"
+  depends_on "libslirp"
   depends_on "pixman"
-  depends_on "zstd"
 
   uses_from_macos "bison" => :build
   uses_from_macos "flex" => :build
-  uses_from_macos "bzip2"
   uses_from_macos "zlib"
 
   def install
-    system "cmake", "-S", ".", "-B", "build", *std_cmake_args
+    system "cmake", "-S", ".", "-B", "build", "-DBUILD_TESTING=OFF", *std_cmake_args
     system "cmake", "--build", "build"
     system "cmake", "--install", "build"
   end
 
   test do
-    assert_match "Usage: pmb887x-emu", shell_output("#{bin}/pmb887x-emu -h 2>&1", 1)
+    assert_match version.to_s, shell_output("#{bin}/pmb887x-emu --version")
   end
 end

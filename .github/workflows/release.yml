@@ -10,68 +10,172 @@ permissions:
 
 jobs:
   windows:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        arch: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v3
-        with: 
-          submodules: true
-
-      - name: Building emulator (Windows)
-        run: |
-          tools/build_win.sh
-          OS_ARCH=$(uname -m)
-          cd build-win64/dist && zip -r "/tmp/pmb887x-emu_Windows-$OS_ARCH.zip" .
-
-      - name: Push release
-        uses: softprops/action-gh-release@v1
+      - uses: actions/checkout@v4
         with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
-          files: /tmp/pmb887x-emu_*.zip
+          submodules: true
+          fetch-depth: 0
+
+      - name: Build
+        run: tools/build_windows.sh ${{ matrix.arch }}
+
+      - name: Package
+        run: |
+          cd build-windows-${{ matrix.arch }}/dist
+          zip -qr "$GITHUB_WORKSPACE/pmb887x-emu_Windows-${{ matrix.arch }}.zip" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+          path: pmb887x-emu_Windows-${{ matrix.arch }}.zip
+
+  windows-test:
+    needs: windows
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: windows-2025
+          - arch: aarch64
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-${{ matrix.arch }}
+
+      - name: Run
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+          Expand-Archive pmb887x-emu_Windows-${{ matrix.arch }}.zip dist
+          dist/pmb887x-emu.exe --version
+          dist/qemu/qemu-system-arm.exe --version
+
+  linux:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            bison \
+            build-essential \
+            cmake \
+            dpkg-dev \
+            file \
+            flex \
+            gettext \
+            libaio-dev \
+            libcacard-dev \
+            libcapstone-dev \
+            libglib2.0-dev \
+            libgtk-3-dev \
+            libpixman-1-dev \
+            libpulse-dev \
+            libslirp-dev \
+            libudev-dev \
+            liburing-dev \
+            libxkbcommon-dev \
+            ninja-build \
+            pkg-config \
+            python3-venv
+
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build build -j$(nproc)
+          cd build && cpack
+
+      - name: Run
+        run: |
+          sudo apt-get install -y ./build/pmb887x-emu_*.deb
+          pmb887x-emu --version
+          /usr/share/pmb887x-emu/qemu/bin/qemu-system-arm --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.runner }}
+          path: build/pmb887x-emu_*.deb
 
   macos:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
+          fetch-depth: 0
 
-      - name: Installing qemu dependencies
-        run: |
-          brew install cmake glib libtool meson ninja pkgconf python@3.14 capstone jpeg-turbo libpng lzo pixman zstd coreutils
+      - name: Install dependencies
+        run: brew install capstone coreutils gettext glib libslirp ninja pixman pkgconf
 
-      - name: Building emulator
+      - name: Build
         run: |
-          OS_VERSION=$(brew ruby -e 'puts MacOS.version.pretty_name')
-          OS_ARCH=$(uname -m)
-          tools/build.sh
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
+          cmake --build build -j$(sysctl -n hw.ncpu)
           cmake --install build --prefix dist
+
+      - name: Run
+        run: dist/bin/pmb887x-emu --version
+
+      - name: Package
+        run: |
+          OS_VERSION=$(sw_vers -productVersion | cut -d. -f1)
           cd dist
-          zip -r "/tmp/pmb887x-emu_MacOS-$OS_VERSION-$OS_ARCH.zip" .
+          zip -qr "$GITHUB_WORKSPACE/pmb887x-emu_macOS-$OS_VERSION-$(uname -m).zip" .
 
-      - name: Push release
-        uses: softprops/action-gh-release@v1
+      - uses: actions/upload-artifact@v4
         with:
-          token: "${{ secrets.GITHUB_TOKEN }}"
-          files: /tmp/pmb887x-emu_*.zip
+          name: macos
+          path: pmb887x-emu_macOS-*.zip
 
-      - name: Check out homebrew tap
-        uses: actions/checkout@v3
+  release:
+    if: github.event_name == 'release'
+    needs: [windows, windows-test, linux, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pmb887x-emu_*.zip
+            pmb887x-emu_*.deb
+
+  homebrew:
+    if: github.event_name == 'release'
+    needs: release
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
         with:
           repository: siemens-mobile-hacks/homebrew-tap
-          path: ./tap
+          path: tap
           token: ${{ secrets.TAP_GITHUB_TOKEN }}
 
-      - name: Generate formula
+      - name: Update formula
         run: |
-          sed -i "" "s/RELEASE_TAG_NAME/$GITHUB_REF_NAME/g" pmb887x-emu.rb
-          sed -i "" "s/RELEASE_TAG_HASH/$GITHUB_SHA/g" pmb887x-emu.rb
-          cat pmb887x-emu.rb
-
+          sed -e "s/RELEASE_TAG_NAME/$GITHUB_REF_NAME/g" -e "s/RELEASE_TAG_HASH/$GITHUB_SHA/g" pmb887x-emu.rb > tap/Formula/pmb887x-emu.rb
           cd tap
-          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git pull
-          cp ../pmb887x-emu.rb Formula/pmb887x-emu.rb
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
           git add Formula/pmb887x-emu.rb
           git commit -m "pmb887x-emu: $GITHUB_REF_NAME"
-          git push --set-upstream origin main
+          git push

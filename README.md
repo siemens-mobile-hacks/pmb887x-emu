@@ -3,13 +3,16 @@ This is a hardware emulator for any boards with pmb8875/pmb8876 CPU, mostly lege
 The current state is very early alpha with many bugs and most hardware unimplemented. :)
 
 # Installation
-- Windows: download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
+- Windows (x86_64, ARM64): download from [Releases](https://github.com/siemens-mobile-hacks/pmb887x-emu/releases).
+- Ubuntu 24.04 (amd64, arm64): download the `.deb` from [Releases](https://github.com/siemens-mobile-hacks/pmb887x-emu/releases) and run `sudo apt install ./pmb887x-emu_*.deb`.
 - ArchLinux: `yay -S pmb887x-emu`
-- OSX: `brew install siemens-mobile-hacks/tap/pmb887x-emu` or download from [Releases](https://github.com/Azq2/pmb887x-emu/releases).
+- macOS: `brew install siemens-mobile-hacks/tap/pmb887x-emu` or download from [Releases](https://github.com/siemens-mobile-hacks/pmb887x-emu/releases).
 - Build from sources:
   ```bash
-  sudo apt-get build-dep qemu # Ubuntu or Debian
-  sudo apt-get install libcacard-dev
+  # Ubuntu or Debian
+  sudo apt-get install bison build-essential cmake flex gettext git libaio-dev libcacard-dev libcapstone-dev \
+      libglib2.0-dev libgtk-3-dev libpixman-1-dev libpulse-dev libslirp-dev libudev-dev liburing-dev \
+      libxkbcommon-dev ninja-build pkg-config python3-venv
 
   git clone --recurse-submodules --shallow-submodules --depth 1 https://github.com/siemens-mobile-hacks/pmb887x-emu
   cd pmb887x-emu
@@ -21,6 +24,8 @@ The current state is very early alpha with many bugs and most hardware unimpleme
   ```
 
 You can also use `./build/pmb887x-emu` instead of `pmb887x-emu` if you want to run it without installation.
+
+Windows builds are cross-compiled in Docker: `tools/build_windows.sh x86_64` or `tools/build_windows.sh aarch64`, the result is in `build-windows-<arch>/dist`.
 
 # Quick start
 
