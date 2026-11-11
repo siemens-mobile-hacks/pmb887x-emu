@@ -4,8 +4,6 @@
 #include <string>
 #include <vector>
 
-// Exposes a blob to other processes as a file path: an anonymous file on Linux and macOS,
-// a temporary file elsewhere.
 class TempFileCopy {
 public:
 	TempFileCopy() = default;
@@ -15,7 +13,9 @@ public:
 	const std::string &create(const std::vector<uint8_t> &data);
 
 private:
+#if defined(__linux__) || defined(__APPLE__)
 	int m_fd = -1;
+#endif
 	std::string m_filePath;
 	bool m_isTempFile = false;
 };
