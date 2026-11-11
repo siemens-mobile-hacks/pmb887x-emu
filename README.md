@@ -76,6 +76,8 @@ Accessory options (detailed usage):
 
 GSM options (detailed usage):
   --gsm-osmotrx                           Act as the transceiver of osmo-bts-trx: HOST:PORT for the CLOCK, TRXC, and TRXD ports PORT..PORT+2
+  --gsm-trxmux                            Join the cell of a TRX multiplexer shared by several emulators: HOST:PORT
+  --gsm-off                               No GSM network: the phone receives no signal
 
 Serial options (detailed usage):
   --serial                                Connect host serial port to QEMU
@@ -225,14 +227,20 @@ Other boards have no accessories yet.
 
 # GSM network
 
-Without options the phone sees a beacon cell on ARFCN 5 without system information.
+Without options the emulator runs its own cell: network 001-01 on ARFCN 5 with registration and GPRS internet through the host (QEMU user networking).
 
-The Osmocom network from `bts/`:
+- Any APN works; the phone gets the address 10.0.2.15 and the DNS server 10.0.2.3.
+- There are no calls, no SMS and no GPRS ciphering; each emulator has its own cell.
+- Internet and MMS settings are not sent to the phone: set the APN on the phone or with `AT+CGDCONT`.
+
+`--gsm-off` leaves the air empty: the phone finds no network.
+
+The Osmocom network from `bts/` adds calls, SMS, MMS, settings by SMS and a cell shared by several emulators:
 
 ```sh
 (cd bts && docker compose up -d)
 build/pmb887x-emu -f EL71.bin --gsm-trxmux 127.0.0.1:5750
-build/pmb887x-emu -f EL71.bin --gsm-trxmux 127.0.0.1:5750 --sim-imsi 001010000000002
+build/pmb887x-emu -f EL71.bin --gsm-trxmux 127.0.0.1:5750 --sim-imsi 001010000001001
 ```
 
 - `--gsm-trxmux HOST:PORT`: join the shared cell; give each phone its own `--sim-imsi`.

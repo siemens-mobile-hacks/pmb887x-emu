@@ -219,6 +219,10 @@ int main(int argc, char *argv[]) {
 	gsmNetwork.add_argument("--gsm-trxmux")
 		.help("Join the cell of a TRX multiplexer shared by several emulators: HOST:PORT")
 		.nargs(1);
+	gsmNetwork.add_argument("--gsm-off")
+		.help("No GSM network: the phone receives no signal")
+		.default_value(false)
+		.implicit_value(true);
 
 	program.add_group("Serial options");
 
@@ -511,6 +515,12 @@ int main(int argc, char *argv[]) {
 		qemuArgs.emplace_back("-object");
 		qemuArgs.emplace_back("gsm-osmotrx,id=gsm0,address=" + endpoint->substr(0, colon) + "," + portProperty + "=" +
 			endpoint->substr(colon + 1));
+		machine += ",gsm-network=gsm0";
+	} else if (!program.get<bool>("--gsm-off")) {
+		qemuArgs.emplace_back("-netdev");
+		qemuArgs.emplace_back("user,id=gsm-net");
+		qemuArgs.emplace_back("-object");
+		qemuArgs.emplace_back("gsm-bts,id=gsm0,netdev=gsm-net");
 		machine += ",gsm-network=gsm0";
 	}
 

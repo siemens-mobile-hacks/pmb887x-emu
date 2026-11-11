@@ -87,6 +87,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 		--enable-dsound
 		--enable-sdl
 		--enable-tcg
+		--enable-slirp
 		--enable-lto
 		--enable-strip
 	)
@@ -159,6 +160,7 @@ else()
 		--enable-pixman
 		--enable-tcg
 		--enable-capstone
+		--enable-slirp
 	)
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
