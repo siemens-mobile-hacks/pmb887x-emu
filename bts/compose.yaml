@@ -60,6 +60,17 @@ services:
     command: python3 /opt/trxmux/trxmux.py
     volumes:
       - ./trxmux:/opt/trxmux:ro
+  provision:
+    <<: *osmocom
+    command: python3 /opt/services/provision.py
+    volumes:
+      - ./services:/opt/services:ro
+  mmsc:
+    <<: *osmocom
+    command: python3 /opt/services/mmsc.py
+    volumes:
+      - ./services:/opt/services:ro
+      - mmsc-state:/var/lib/mmsc
   bts0:
     <<: *bts
     environment:
@@ -105,3 +116,4 @@ services:
 
 volumes:
   pcu-socket:
+  mmsc-state:
