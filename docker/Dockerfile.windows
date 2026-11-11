@@ -1,0 +1,55 @@
+FROM archlinux:base-devel
+
+ARG LLVM_MINGW_VERSION=20261020
+ARG MSYS2_KEYRING=msys2-keyring-1~20260814-1-any.pkg.tar.zst
+ARG MSYS2_REPO
+ARG MSYS2_PACKAGE_PREFIX
+
+RUN pacman -Syu --noconfirm --needed \
+	bison \
+	cmake \
+	flex \
+	git \
+	meson \
+	ninja \
+	pkgconf \
+	python \
+	wget && \
+	pacman -Scc --noconfirm
+
+RUN wget -qO- "https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-x86_64.tar.xz" | \
+	tar -xJ -C /opt && \
+	mv /opt/llvm-mingw-* /opt/llvm-mingw
+
+RUN wget -qO /tmp/keyring.pkg.tar.zst "https://mirror.msys2.org/msys/x86_64/${MSYS2_KEYRING}" && \
+	tar -xf /tmp/keyring.pkg.tar.zst -C / usr/share/pacman/keyrings && \
+	rm /tmp/keyring.pkg.tar.zst && \
+	pacman-key --init && \
+	pacman-key --populate msys2
+
+RUN printf '[options]\nSigLevel = Required DatabaseOptional\n\n[%s]\n' "${MSYS2_REPO}" > /etc/pacman-msys2.conf && \
+	printf 'Server = %s/mingw/$repo/\n' \
+		https://repo.msys2.org \
+		https://mirrors.dotsrc.org/msys2 \
+		https://ftp.fau.de/msys2 \
+		>> /etc/pacman-msys2.conf && \
+	mkdir -p /opt/msys2/var/lib/pacman /tmp/msys2-cache && \
+	pacman --config /etc/pacman-msys2.conf --root /opt/msys2 --dbpath /opt/msys2/var/lib/pacman \
+		--cachedir /tmp/msys2-cache --noconfirm --noscriptlet -Sy \
+		${MSYS2_PACKAGE_PREFIX}-SDL2 \
+		${MSYS2_PACKAGE_PREFIX}-gettext-runtime \
+		${MSYS2_PACKAGE_PREFIX}-glib2 \
+		${MSYS2_PACKAGE_PREFIX}-gtk3 \
+		${MSYS2_PACKAGE_PREFIX}-libepoxy \
+		${MSYS2_PACKAGE_PREFIX}-libjpeg-turbo \
+		${MSYS2_PACKAGE_PREFIX}-libpng \
+		${MSYS2_PACKAGE_PREFIX}-libslirp \
+		${MSYS2_PACKAGE_PREFIX}-libwinpthread \
+		${MSYS2_PACKAGE_PREFIX}-pixman \
+		${MSYS2_PACKAGE_PREFIX}-zstd && \
+	rm -rf /tmp/msys2-cache
+
+ENV PATH=/opt/llvm-mingw/bin:$PATH
+ENV PKG_CONFIG=pkg-config
+ENV PKG_CONFIG_LIBDIR=/opt/msys2/${MSYS2_REPO}/lib/pkgconfig
+ENV PKG_CONFIG_SYSROOT_DIR=/opt/msys2

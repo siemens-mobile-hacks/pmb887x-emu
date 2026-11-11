@@ -65,12 +65,18 @@ execute_process(COMMAND nproc OUTPUT_VARIABLE BUILD_THREADS)
 string(REGEX REPLACE "\n$" "" BUILD_THREADS "${BUILD_THREADS}")
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
+	set(MINGW_CROSS_PREFIX "${CMAKE_SYSTEM_PROCESSOR}-w64-mingw32-" CACHE STRING "Cross toolchain prefix for QEMU")
+	set(MINGW_DLL_DIR "" CACHE PATH "Directory with the runtime DLLs to bundle")
+	if (NOT MINGW_DLL_DIR)
+		message(FATAL_ERROR "MINGW_DLL_DIR is not set")
+	endif()
+
 	target_link_options(emu PUBLIC -static -static-libgcc -static-libstdc++)
 
 	SET(QEMU_CONFIGURE_OPTIONS
 		--prefix=${CMAKE_BINARY_DIR}/dist/qemu
-		--cross-prefix=x86_64-w64-mingw32-
-		--enable-werror
+		--cross-prefix=${MINGW_CROSS_PREFIX}
+		--disable-werror
 		--disable-user
 		--target-list=arm-softmmu
 		--disable-docs
@@ -105,7 +111,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 	)
 
 	# Copy DLL's
-	file(GLOB SYSROOT_DLLS "/usr/x86_64-w64-mingw32/sys-root/mingw/bin/*.dll")
+	file(GLOB SYSROOT_DLLS "${MINGW_DLL_DIR}/*.dll")
 	foreach(dll_file IN LISTS SYSROOT_DLLS)
 		add_custom_command(TARGET emu POST_BUILD
 			COMMAND ${CMAKE_COMMAND} -E copy_if_different "${dll_file}" "${DIST_DIR}/qemu"
@@ -218,3 +224,4 @@ else()
 		BUILD_ALWAYS TRUE
 	)
 endif()
+
