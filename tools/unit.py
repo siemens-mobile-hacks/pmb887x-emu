@@ -21,6 +21,7 @@ LOCK_PATH = ROOT / "build" / "unit-tests.lock"
 LOCK_HELD_ENV = "PMB887X_UNIT_LOCK_HELD"
 AUDIO_EXPECT_PREFIX = b"# AUDIO-EXPECT: "
 AUDIO_CAPTURE_RATE_HZ = 48000
+FIRMWARE_START_S = 5
 BSP_ROOT = ROOT / "bsp"
 E2E_ROOT = BSP_ROOT / "e2e"
 E2E_RUNNERS = {
@@ -286,6 +287,8 @@ def main():
     result = {"failed": False, "passed": False, "audio_expect": []}
     try:
         emulator = subprocess.Popen(emulator_command, cwd=ROOT, start_new_session=True)
+        if e2e_test is not None:
+            time.sleep(FIRMWARE_START_S)
         test = subprocess.Popen(
             test_command, cwd=test_cwd, start_new_session=True, stdout=subprocess.PIPE, stderr=test_stderr
         )
