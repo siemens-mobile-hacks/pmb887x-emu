@@ -7,6 +7,20 @@ x-osmocom: &osmocom
   volumes:
     - ./config:/etc/osmocom:ro
 
+x-cell: &cell
+  <<: *osmocom
+  volumes:
+    - ./config:/etc/osmocom:ro
+    - pcu-socket:/tmp
+
+x-bts: &bts
+  <<: *cell
+  command: sh -c 'sed "s/@CELL@/$$CELL/g" /etc/osmocom/osmo-bts-trx.cfg > /run/osmo-bts-trx.cfg && exec osmo-bts-trx -c /run/osmo-bts-trx.cfg'
+
+x-pcu: &pcu
+  <<: *cell
+  command: sh -c 'sed "s/@CELL@/$$CELL/g" /etc/osmocom/osmo-pcu.cfg > /run/osmo-pcu.cfg && exec osmo-pcu -c /run/osmo-pcu.cfg'
+
 services:
   net:
     image: pmb887x-bts
@@ -46,18 +60,38 @@ services:
     command: python3 /opt/trxmux/trxmux.py
     volumes:
       - ./trxmux:/opt/trxmux:ro
-  bts:
-    <<: *osmocom
-    command: osmo-bts-trx -c /etc/osmocom/osmo-bts-trx.cfg
-    volumes:
-      - ./config:/etc/osmocom:ro
-      - pcu-socket:/tmp
-  pcu:
-    <<: *osmocom
-    command: osmo-pcu -c /etc/osmocom/osmo-pcu.cfg
-    volumes:
-      - ./config:/etc/osmocom:ro
-      - pcu-socket:/tmp
+  bts0:
+    <<: *bts
+    environment:
+      CELL: 0
+  pcu0:
+    <<: *pcu
+    environment:
+      CELL: 0
+  bts1:
+    <<: *bts
+    environment:
+      CELL: 1
+  pcu1:
+    <<: *pcu
+    environment:
+      CELL: 1
+  bts2:
+    <<: *bts
+    environment:
+      CELL: 2
+  pcu2:
+    <<: *pcu
+    environment:
+      CELL: 2
+  bts3:
+    <<: *bts
+    environment:
+      CELL: 3
+  pcu3:
+    <<: *pcu
+    environment:
+      CELL: 3
   sgsn:
     <<: *osmocom
     command: osmo-sgsn -c /etc/osmocom/osmo-sgsn.cfg
