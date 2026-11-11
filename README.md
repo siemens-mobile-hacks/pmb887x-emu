@@ -218,7 +218,8 @@ The default is `data-cable` on Siemens boards and `none` on LG boards; `none` le
 
 | LG boards | Accessories |
 |-----------|-------------|
-| KE800, KE970 | `none`, `headset-stereo` |
+| KE800 | `none`, `headset-stereo` |
+| KE970 | `none`, `headset-stereo`, `data-cable` |
 
 Other boards have no accessories yet.
 
