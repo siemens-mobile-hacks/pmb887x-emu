@@ -1,45 +1,28 @@
 #!/usr/bin/env python3
-"""Send OMA Client Provisioning settings to every new subscriber once per stack run.
+"""Set up every new subscriber once per stack run.
 
-Polls the subscriber list of osmo-hlr over its VTY and sends each new IMSI a
-WAP push with the Internet, browser and MMS settings through the SMPP
-interface of osmo-msc. The push is signed with NETWPIN (OMA ProvBoot), which
-the phone verifies against its own IMSI without asking for a PIN.
+Polls the subscriber list of osmo-hlr over its VTY and gives each new IMSI the
+XOR-3G key of the emulated SIM for GPRS authentication and ciphering and a
+phone number derived from the IMSI. With PROVISION_SETTINGS it also sends a
+WAP push with the OMA Client Provisioning document provisioning.xml through the
+SMPP interface of osmo-msc. The push is signed with NETWPIN (OMA ProvBoot),
+which the phone verifies against its own IMSI without asking for a PIN.
 """
 
 import hashlib
 import hmac
 import re
+import subprocess
 import time
 
+import stack
 from osmocom import HLR_VTY_PORT, send_wap_push, vty_command
 
-POLL_INTERVAL_S = 5
+POLL_INTERVAL_S = 0.2
 
-APN = "internet"
-NAPID = "INTERNET GPRS"
-APN_USER = "internet"
-APN_PASSWORD = "internet"
-HOMEPAGE = "http://google.com/"
-MMSC = "http://172.16.32.1:8002/"
-NO_DNS = "0.0.0.0"
-QOS_SUBSCRIBED = "0"
-QOS_PARAMETERS = (
-    "TRAFFIC-CLASS", "DELIVERY-ERR-SDU", "DELIVERY-ORDER", "MAX-SDU-SIZE", "MAX-BITRATE-UPLINK",
-    "MAX-BITRATE-DNLINK", "RESIDUAL-BER", "SDU-ERROR-RATIO", "TRAFFIC-HANDL-PRIO", "TRANSFER-DELAY",
-    "GUARANTEED-BITRATE-UPLINK", "GUARANTEED-BITRATE-DNLINK",
-)
+PROVISIONING_DOCUMENT = "/etc/osmocom/provisioning.xml"
 
-SUBSCRIBER_LINE = re.compile(r"^\s*\d+\s+(\d+)\s+(\d{6,15})\s")
-
-WBXML_HEADER = bytes([0x03, 0x0B, 0x6A, 0x00])
-WBXML_END = b"\x01"
-TAG_PROVISIONINGDOC = b"\x45"
-TAG_CHARACTERISTIC = b"\xC6"
-TAG_PARM = b"\x87"
-ATTR_NAME = b"\x05"
-ATTR_VALUE = b"\x06"
-ATTR_TYPE = b"\x50"
+SUBSCRIBER_LINE = re.compile(r"^\s*\d+\s+\S+\s+(\d{6,15})\s")
 
 WSP_PUSH = 0x06
 WSP_LENGTH_QUOTE = 0x1F
@@ -50,36 +33,9 @@ PARAM_MAC = 0x92
 
 
 
-def wbxml_string(text):
-    return b"\x03" + text.encode() + b"\x00"
-
-
-def parm(name, value=None):
-    out = TAG_PARM + ATTR_NAME + wbxml_string(name)
-    if value is not None:
-        out += ATTR_VALUE + wbxml_string(value)
-    return out + WBXML_END
-
-
-def characteristic(kind, *children):
-    return TAG_CHARACTERISTIC + ATTR_TYPE + wbxml_string(kind) + WBXML_END + b"".join(children) + WBXML_END
-
-
 def provisioning_document():
-    return WBXML_HEADER + TAG_PROVISIONINGDOC + b"".join([
-        characteristic("BOOTSTRAP", parm("NAME", "Internet")),
-        characteristic("NAPDEF",
-            parm("NAPID", NAPID), parm("BEARER", "GSM-GPRS"), parm("NAME", "Internet"),
-            parm("NAP-ADDRESS", APN), parm("NAP-ADDRTYPE", "APN"), parm("CALLTYPE", "ANALOG-MODEM"), parm("LINGER", "180"),
-            parm("DNS-ADDR", NO_DNS), parm("DNS-ADDR", NO_DNS),
-            *(parm(name, QOS_SUBSCRIBED) for name in QOS_PARAMETERS),
-            characteristic("NAPAUTHINFO", parm("AUTHTYPE", "PAP"), parm("AUTHNAME", APN_USER), parm("AUTHSECRET", APN_PASSWORD))),
-        characteristic("APPLICATION",
-            parm("APPID", "w2"), parm("TO-NAPID", NAPID), parm("INTERNET"), parm("NAME", "Internet"),
-            characteristic("RESOURCE", parm("URI", HOMEPAGE), parm("NAME", "Home"), parm("STARTPAGE"))),
-        characteristic("APPLICATION",
-            parm("APPID", "w4"), parm("TO-NAPID", NAPID), parm("INTERNET"), parm("NAME", "MMS"), parm("ADDR", MMSC)),
-    ]) + WBXML_END
+    result = subprocess.run(["xml2wbxml", "-n", "-v", "1.3", "-o", "-", PROVISIONING_DOCUMENT], capture_output=True, check=True)
+    return result.stdout
 
 
 def netwpin(imsi):
@@ -91,8 +47,7 @@ def netwpin(imsi):
     return bytes([first] + [(tail[i + 1] << 4) | tail[i] for i in range(0, len(tail), 2)])
 
 
-def wap_push(imsi):
-    document = provisioning_document()
+def wap_push(imsi, document):
     mac = hmac.new(netwpin(imsi), document, hashlib.sha1).hexdigest().upper().encode()
     content_type = bytes([CONTENT_TYPE_PROVISIONING, PARAM_SEC, SEC_NETWPIN, PARAM_MAC]) + mac + b"\x00"
     headers = bytes([WSP_LENGTH_QUOTE, len(content_type)]) + content_type
@@ -102,19 +57,24 @@ def wap_push(imsi):
 def subscribers():
     for line in vty_command(HLR_VTY_PORT, "show subscribers all"):
         if match := SUBSCRIBER_LINE.match(line):
-            yield match.group(2), match.group(1)
+            yield match.group(1)
 
 
 def main():
+    document = provisioning_document() if stack.provision_settings() else None
     provisioned = set()
     reference = 0
     while True:
         try:
-            for imsi, msisdn in subscribers():
+            for imsi in subscribers():
                 if imsi in provisioned:
                     continue
-                reference = (reference + 1) & 0xFF
-                send_wap_push(msisdn, wap_push(imsi), reference)
+                msisdn = stack.imsi_to_msisdn(imsi)
+                vty_command(HLR_VTY_PORT, f"subscriber imsi {imsi} update aud3g xor-3g k {stack.sim_ki()}")
+                vty_command(HLR_VTY_PORT, f"subscriber imsi {imsi} update msisdn {msisdn}")
+                if document:
+                    reference = (reference + 1) & 0xFF
+                    send_wap_push(msisdn, wap_push(imsi, document), reference)
                 provisioned.add(imsi)
                 print(f"provisioned {imsi} ({msisdn})", flush=True)
         except (OSError, RuntimeError) as error:

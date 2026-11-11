@@ -24,6 +24,7 @@ Emulators exchange single UDP datagrams whose first byte is the message type:
 
 import argparse
 import asyncio
+import os
 import socket
 import struct
 import time
@@ -32,7 +33,6 @@ HYPERFRAME_FRAMES = 2715648
 FRAME_NUMERATOR_NS = 60_000_000
 FRAME_DENOMINATOR = 13
 FRAME_NS = FRAME_NUMERATOR_NS / FRAME_DENOMINATOR
-CELLS = 4
 CELL_PORT_STRIDE = 10
 BTS_PORT_OFFSET = 100
 CLOCK_INDICATION_FRAMES = 26
@@ -177,10 +177,10 @@ class Cell:
 
 
 class TrxMux:
-    def __init__(self, address, base_port, client_address, client_port):
+    def __init__(self, address, base_port, client_address, client_port, cells):
         self.loop = asyncio.get_running_loop()
         self.client_socket = open_socket(client_address, client_port, None)
-        self.cells = [Cell(self, index, address, base_port) for index in range(CELLS)]
+        self.cells = [Cell(self, index, address, base_port) for index in range(cells)]
         self.clients = {}
         self.loop.add_reader(self.client_socket, self.read_client)
         self.tick()
@@ -258,13 +258,14 @@ def frames_between(fn, later):
 async def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--address", default="127.0.0.1")
-    parser.add_argument("--base-port", type=int, default=5700)
+    parser.add_argument("--base-port", type=int, default=6700)
     parser.add_argument("--client-address", default="0.0.0.0")
     parser.add_argument("--client-port", type=int, default=5750)
+    parser.add_argument("--cells", type=int, default=int(os.environ.get("BTS_CELLS", "4")))
     args = parser.parse_args()
 
-    TrxMux(args.address, args.base_port, args.client_address, args.client_port)
-    print(f"trxmux: {CELLS} cells from {args.address}:{args.base_port}, clients on "
+    TrxMux(args.address, args.base_port, args.client_address, args.client_port, args.cells)
+    print(f"trxmux: {args.cells} cells from {args.address}:{args.base_port}, clients on "
           f"{args.client_address}:{args.client_port}", flush=True)
     await asyncio.Event().wait()
 
