@@ -219,9 +219,24 @@ else()
 
 		CONFIGURE_COMMAND ${CMAKE_SOURCE_DIR}/qemu/configure ${QEMU_CONFIGURE_OPTIONS}
 		BUILD_COMMAND $(MAKE)
-		INSTALL_COMMAND $(MAKE) install > /dev/null
+		INSTALL_COMMAND ${CMAKE_COMMAND} -E env --unset=DESTDIR $(MAKE) install > /dev/null
 
 		BUILD_ALWAYS TRUE
 	)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+	string(REGEX REPLACE "^v" "" DEB_VERSION "${PROJECT_VERSION}")
+	string(REPLACE "-" "+" DEB_VERSION "${DEB_VERSION}")
+
+	set(CPACK_GENERATOR DEB)
+	set(CPACK_PACKAGE_NAME pmb887x-emu)
+	set(CPACK_PACKAGE_VERSION "${DEB_VERSION}")
+	set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Infineon PMB887x-based phones emulator")
+	set(CPACK_DEBIAN_PACKAGE_MAINTAINER "siemens-mobile-hacks")
+	set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "https://github.com/siemens-mobile-hacks/pmb887x-emu")
+	set(CPACK_DEBIAN_PACKAGE_SECTION otherosfs)
+	set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+	set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+	include(CPack)
+endif()
