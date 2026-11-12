@@ -56,7 +56,7 @@ GSM options (detailed usage):
   --gsm-osmotrx                           Act as the transceiver of osmo-bts-trx: HOST:PORT for the CLOCK, TRXC, and TRXD ports PORT..PORT+2
   --gsm-trxmux                            Join the cell of a TRX multiplexer shared by several emulators: HOST:PORT
   --gsm-off                               No GSM network: the phone receives no signal
-  --gsm-arfcn                             Channel of the built-in cell: a GSM850, GSM900, or DCS1800 ARFCN, or PCS1900 with --gsm-pcs1900 (default 5)
+  --gsm-arfcn                             Channel of the built-in cell: a GSM850, GSM900, or DCS1800 ARFCN, or PCS1900 with --gsm-pcs1900 (default 512)
   --gsm-pcs1900                           --gsm-arfcn is a PCS1900 channel
   --gsm-gsmtap                            Send the built-in cell's air traffic as GSMTAP to HOST, UDP port 4729
 
@@ -225,7 +225,7 @@ Modem: `AT+CGDCONT=1,"IP","internet"`.
 
 Cell options:
 
-- `--gsm-arfcn N`: channel, default 5 (GSM900).
+- `--gsm-arfcn N`: channel, default 512 (DCS1800).
   GSM850 is 128–251, GSM900 is 0–124 and 975–1023, DCS1800 is 512–885.
 - `--gsm-pcs1900`: `--gsm-arfcn` 512–810 is a PCS1900 channel.
 - `--gsm-gsmtap HOST`: copy of the air traffic as GSMTAP to UDP port 4729, for example for Wireshark.

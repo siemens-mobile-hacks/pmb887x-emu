@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
 		.implicit_value(true);
 
 	program.add_argument("--gsm-arfcn")
-		.help("Channel of the built-in cell: a GSM850, GSM900, or DCS1800 ARFCN, or PCS1900 with --gsm-pcs1900 (default 5)")
+		.help("Channel of the built-in cell: a GSM850, GSM900, or DCS1800 ARFCN, or PCS1900 with --gsm-pcs1900 (default 512)")
 		.nargs(1);
 	program.add_argument("--gsm-pcs1900")
 		.help("--gsm-arfcn is a PCS1900 channel")
