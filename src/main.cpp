@@ -224,6 +224,17 @@ int main(int argc, char *argv[]) {
 		.default_value(false)
 		.implicit_value(true);
 
+	program.add_argument("--gsm-arfcn")
+		.help("Channel of the built-in cell: a GSM850, GSM900, or DCS1800 ARFCN, or PCS1900 with --gsm-pcs1900 (default 5)")
+		.nargs(1);
+	program.add_argument("--gsm-pcs1900")
+		.help("--gsm-arfcn is a PCS1900 channel")
+		.default_value(false)
+		.implicit_value(true);
+	program.add_argument("--gsm-gsmtap")
+		.help("Send the built-in cell's air traffic as GSMTAP to HOST, UDP port 4729")
+		.nargs(1);
+
 	program.add_group("Serial options");
 
 	program.add_argument("--serial")
@@ -503,6 +514,14 @@ int main(int argc, char *argv[]) {
 	qemuArgs.insert(qemuArgs.end(), clockArguments.begin(), clockArguments.end());
 
 	std::string machine = "pmb887x";
+	bool builtinCell = !program.is_used("--gsm-osmotrx") && !program.is_used("--gsm-trxmux") &&
+		!program.get<bool>("--gsm-off");
+	bool cellOptions = program.is_used("--gsm-arfcn") || program.get<bool>("--gsm-pcs1900") ||
+		program.is_used("--gsm-gsmtap");
+	if (cellOptions && !builtinCell) {
+		spdlog::error("--gsm-arfcn, --gsm-pcs1900, and --gsm-gsmtap apply only to the built-in cell");
+		return 1;
+	}
 	bool trxmux = program.is_used("--gsm-trxmux");
 	auto endpoint = program.present(trxmux ? "--gsm-trxmux" : "--gsm-osmotrx");
 	if (endpoint) {
@@ -519,8 +538,15 @@ int main(int argc, char *argv[]) {
 	} else if (!program.get<bool>("--gsm-off")) {
 		qemuArgs.emplace_back("-netdev");
 		qemuArgs.emplace_back("user,id=gsm-net");
+		std::string cell = "gsm-bts,id=gsm0,netdev=gsm-net";
+		if (auto arfcn = program.present("--gsm-arfcn"))
+			cell += ",arfcn=" + *arfcn;
+		if (program.get<bool>("--gsm-pcs1900"))
+			cell += ",pcs1900=on";
+		if (auto gsmtap = program.present("--gsm-gsmtap"))
+			cell += ",gsmtap=" + *gsmtap;
 		qemuArgs.emplace_back("-object");
-		qemuArgs.emplace_back("gsm-bts,id=gsm0,netdev=gsm-net");
+		qemuArgs.emplace_back(cell);
 		machine += ",gsm-network=gsm0";
 	}
 
