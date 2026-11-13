@@ -82,12 +82,12 @@ int main(int argc, char *argv[]) {
 	program.add_group("OTP options");
 
 	program.add_argument("--flash-otp0", "--flash-0-otp0")
-		.help("Raw NOR flash otp0 value in HEX (with lock bits)")
+		.help("NOR flash OTP0 data in HEX")
 		.nargs(1)
 		.default_value("");
 
 	program.add_argument("--flash-otp1", "--flash-0-otp1")
-		.help("Raw NOR flash otp1 value in HEX (with lock bits)")
+		.help("NOR flash OTP1 data in HEX")
 		.nargs(1)
 		.default_value("");
 
@@ -109,11 +109,11 @@ int main(int argc, char *argv[]) {
 	for (size_t index = 1; index < FLASH_BANK_COUNT; index++) {
 		const auto prefix = "--flash-" + std::to_string(index) + "-";
 		program.add_argument(prefix + "otp0")
-			.help("Raw NOR flash otp0 value in HEX (with lock bits)")
+			.help("NOR flash OTP0 data in HEX")
 			.nargs(1)
 			.default_value("");
 		program.add_argument(prefix + "otp1")
-			.help("Raw NOR flash otp1 value in HEX (with lock bits)")
+			.help("NOR flash OTP1 data in HEX")
 			.nargs(1)
 			.default_value("");
 		program.add_argument(prefix + "otp0-file")

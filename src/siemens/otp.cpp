@@ -19,7 +19,7 @@ std::string imeiToOtp(const std::string &imei) {
 		otpImei += imei[index];
 	}
 
-	return "0000" + otpImei + "FF";
+	return otpImei + "FF";
 }
 
 std::string esnToOtp(const std::string &esn) {
@@ -41,7 +41,7 @@ std::string esnToOtp(const std::string &esn) {
 		otpEsn += HEX_DIGITS[(result & 0x0F)];
 	}
 
-	return "0200" + otpEsn + "00000000";
+	return otpEsn + "00000000";
 }
 
 }

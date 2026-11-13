@@ -78,8 +78,8 @@ TEST_CASE("Siemens ciphers match known vectors") {
 }
 
 TEST_CASE("Siemens identities convert to exact OTP and reject malformed input") {
-	CHECK(SiemensFW::esnToOtp("12345678") == "02004AB3C31100000000");
-	CHECK(SiemensFW::imeiToOtp("490154203237518") == "000094104502237315FF");
+	CHECK(SiemensFW::esnToOtp("12345678") == "4AB3C31100000000");
+	CHECK(SiemensFW::imeiToOtp("490154203237518") == "94104502237315FF");
 	CHECK_THROWS_AS(SiemensFW::imeiToOtp("12345678901234X"), std::invalid_argument);
 	CHECK_THROWS_AS(SiemensFW::esnToOtp("1234567Z"), std::invalid_argument);
 }
