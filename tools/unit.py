@@ -181,7 +181,10 @@ def install_typescript_dependencies():
     if install_marker.is_file() and lockfile.stat().st_mtime_ns <= install_marker.stat().st_mtime_ns:
         return True
     command = ["pnpm", "--dir", BSP_ROOT, "install", "--frozen-lockfile", "--prefer-offline"]
-    return subprocess.run(command, cwd=ROOT).returncode == 0
+    if subprocess.run(command, cwd=ROOT).returncode != 0:
+        return False
+    install_marker.touch()
+    return True
 
 
 def main():
@@ -238,7 +241,7 @@ def main():
     build_dir = unit_build_dir(args.device)
     if e2e_test is None and not args.no_bsp_build and not build_units(args.device, [test_name]):
         return 2
-    if e2e_test is not None and e2e_test.suffix == ".ts" and not install_typescript_dependencies():
+    if (e2e_test is None or e2e_test.suffix == ".ts") and not install_typescript_dependencies():
         return 2
 
     qemu_master, qemu_slave = pty.openpty()
@@ -268,8 +271,7 @@ def main():
         emulator_command.extend(["-audio", f"driver=wav,path={audio_path},out.frequency={AUDIO_CAPTURE_RATE_HZ}"])
     if e2e_test is None:
         test_command = [
-            sys.executable,
-            ROOT / "bsp" / "boot.py",
+            ROOT / "bsp" / "boot.sh",
             build_dir / (test_name + ".bin"),
             "--no-ign",
             "--device", test_serial,
