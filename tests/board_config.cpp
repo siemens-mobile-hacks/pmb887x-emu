@@ -36,6 +36,7 @@ TEST_CASE("APOXI boards are detected by their fullflash markers") {
 	CHECK(detectDevices({ { 0x40000, "VS70VA57\0"sv } }) == std::vector<std::string> { "panasonic-705p" });
 	CHECK(detectDevices({ { 0x20C20, "NBG_LEOPARD_05.23 SMARTI_SDB1 SGOLDliteV1.1\0"sv } }) == std::vector<std::string> { "panasonic-vs7" });
 	CHECK(detectDevices({ { 0x20C20, "NBG_LEOPARD_05.19.02 SMARTI_SDB1 SGOLDliteV1.1\0"sv } }) == std::vector<std::string> { "panasonic-vs7" });
+	CHECK(detectDevices({ { 0x40C00, "DRV_MPE_NBG_13.00.00 SMARTI_PM SGOLD2\0"sv } }) == std::vector<std::string> { "siemens-cl61a" });
 	CHECK(detectDevices({
 		{ 0x40C00, "DEMOBL SMARTI_PM SGOLD\0"sv },
 		{ 0x90088, "DEMOSTAT\0UNUSED\0\0SP85\0\0\0\0SIEMENS\0undefined\0"sv },
@@ -71,4 +72,9 @@ TEST_CASE("Board aliases resolve to board names") {
 	CHECK_THROWS(findBoardByAlias(boardDir, "vendor-first-a"));
 
 	std::filesystem::remove_all(boardDir);
+}
+
+TEST_CASE("Board platform is inherited through extends") {
+	CHECK(getBoardPlatform(BOARD_DIR "/siemens-s66.toml") == "siemens");
+	CHECK(getBoardPlatform(BOARD_DIR "/siemens-sl98.toml") == "apoxi");
 }

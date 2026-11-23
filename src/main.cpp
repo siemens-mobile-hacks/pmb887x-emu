@@ -394,9 +394,11 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
+	std::string platform;
 	try {
 		device = resolveDeviceAlias(device.empty() ? detectDevice(fullflash) : device);
 		qemuEnv["PMB887X_BOARD"] = getBoardConfigPath(device);
+		platform = getBoardPlatform(qemuEnv["PMB887X_BOARD"]);
 	} catch (const std::exception &error) {
 		spdlog::error("{}", error.what());
 		return 1;
@@ -446,7 +448,7 @@ int main(int argc, char *argv[]) {
 		hasOTP = true;
 	}
 
-	if (device.starts_with("siemens-") && !hasOTP) {
+	if (platform == "siemens" && !hasOTP) {
 		FlashBankOptions &flash0 = flashOptions[0];
 		flash0.otp0 = SiemensFW::esnToOtp(DEFAULT_ESN);
 		flash0.otp1 = SiemensFW::imeiToOtp(DEFAULT_IMEI);

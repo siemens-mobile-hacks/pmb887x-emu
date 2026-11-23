@@ -9,6 +9,7 @@
 #include <stdexcept>
 
 static const uint32_t FULLFLASH_BASE = 0xA0000000;
+static const int BOARD_CONFIG_MAX_EXTENDS = 8;
 
 struct BoardConfig {
 	std::filesystem::path path;
@@ -62,16 +63,20 @@ static bool matchBoardPattern(const BoardPattern &pattern, const Ptr89::Pattern:
 	return !Ptr89::Pattern::find(pattern.pattern, memory, 1).empty();
 }
 
+static toml::table parseBoardConfig(const std::filesystem::path &path) {
+	try {
+		return toml::parse_file(path.string());
+	} catch (const toml::parse_error &error) {
+		throw std::runtime_error(path.string() + ": " + std::string(error.description()));
+	}
+}
+
 static std::vector<BoardConfig> loadBoardConfigs(const std::filesystem::path &boardDir) {
 	std::vector<BoardConfig> boards;
 	for (const auto &entry : std::filesystem::directory_iterator(boardDir)) {
 		if (!entry.is_regular_file() || entry.path().extension() != ".toml")
 			continue;
-		try {
-			boards.push_back({ entry.path(), toml::parse_file(entry.path().string()) });
-		} catch (const toml::parse_error &error) {
-			throw std::runtime_error(entry.path().string() + ": " + std::string(error.description()));
-		}
+		boards.push_back({ entry.path(), parseBoardConfig(entry.path()) });
 	}
 	std::sort(boards.begin(), boards.end(), [](const BoardConfig &a, const BoardConfig &b) { return a.path < b.path; });
 	return boards;
@@ -117,4 +122,19 @@ std::optional<std::string> findBoardByAlias(const std::filesystem::path &boardDi
 	if (devices.size() > 1)
 		throw std::runtime_error("Device alias " + alias + " is used by several boards");
 	return devices[0];
+}
+
+std::string getBoardPlatform(const std::filesystem::path &configPath) {
+	std::filesystem::path path = configPath;
+	for (int depth = 0; depth <= BOARD_CONFIG_MAX_EXTENDS; depth++) {
+		toml::table config = parseBoardConfig(path);
+		if (auto platform = config["board"]["platform"].value<std::string>())
+			return *platform;
+
+		auto extends = config["board"]["extends"].value<std::string>();
+		if (!extends)
+			return "";
+		path = path.parent_path() / *extends;
+	}
+	throw std::runtime_error(configPath.string() + ": too many nested extends");
 }
