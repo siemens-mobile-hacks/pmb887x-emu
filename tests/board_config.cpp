@@ -57,6 +57,7 @@ static void writeBoardConfig(const std::filesystem::path &path, const std::strin
 TEST_CASE("Board aliases resolve to board names") {
 	CHECK(findBoardByAlias(BOARD_DIR, "panasonic-sa7") == "panasonic-vs7");
 	CHECK(findBoardByAlias(BOARD_DIR, "panasonic-vs3") == "panasonic-vs7");
+	CHECK(findBoardByAlias(BOARD_DIR, "siemens-c1f0") == "siemens-el71");
 
 	auto boardDir = std::filesystem::temp_directory_path() / "pmb887x-emu-board-aliases";
 	std::filesystem::remove_all(boardDir);
