@@ -29,8 +29,21 @@ endif()
 
 add_subdirectory(src/siemens)
 
+add_library(
+	ptr89 STATIC
+	third_party/ptr89/lib/src/Arch.cpp
+	third_party/ptr89/lib/src/Parser.cpp
+	third_party/ptr89/lib/src/Pattern.cpp
+	third_party/ptr89/lib/src/Tokenizer.cpp
+	third_party/ptr89/lib/src/utils.cpp
+)
+target_include_directories(ptr89 PUBLIC "${CMAKE_SOURCE_DIR}/third_party/ptr89/lib")
+target_link_libraries(ptr89 PUBLIC siemensfw-dependencies)
+target_compile_features(ptr89 PUBLIC cxx_std_20)
+
 add_executable(
 	emu
+	src/board_config.cpp
 	src/main.cpp
 	src/qemu_args.cpp
 	src/utils/file.cpp
@@ -54,7 +67,7 @@ if (CMAKE_BUILD_TYPE MATCHES "Release")
 	target_link_options(emu PUBLIC -s)
 endif()
 
-target_link_libraries(emu PUBLIC argparse SiemensFW::SiemensFW siemensfw-dependencies)
+target_link_libraries(emu PUBLIC argparse SiemensFW::SiemensFW siemensfw-dependencies ptr89)
 target_compile_options(emu PUBLIC -Wall -Wextra -Werror -O3)
 
 if (BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)

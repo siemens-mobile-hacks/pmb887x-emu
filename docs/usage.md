@@ -11,7 +11,7 @@ Optional arguments:
   -v, --version                           prints version information and exits
 
 Main options (detailed usage):
-  -d, --device                            Device name or path to a custom board TOML file (detected for Siemens fullflashes by default) [nargs=0..1] [default: ""]
+  -d, --device                            Device name or path to a custom board TOML file (detected from the fullflash by default) [nargs=0..1] [default: ""]
   -f, --fullflash                         Path to the fullflash.bin file [required]
   --rw                                    Allow writing to fullflash.bin (dangerous!)
 
@@ -88,8 +88,8 @@ QEMU options (detailed usage):
 pmb887x-emu --fullflash EL71.bin
 ```
 
-The device is detected from Siemens fullflash metadata. Use `--device` explicitly for other vendors, custom board files,
-or to override the detected device.
+The device is detected from the fullflash: Siemens fullflashes by their model metadata, other fullflashes by the `board.patterns` of the board files.
+Use `--device` to override the detected device or to run a custom board file.
 
 2. Running fullflash with your own ESN and IMEI
 ```

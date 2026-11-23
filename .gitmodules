@@ -19,3 +19,6 @@
 [submodule "bts"]
 	path = bts
 	url = https://github.com/siemens-mobile-hacks/bts-emulator
+[submodule "third_party/ptr89"]
+	path = third_party/ptr89
+	url = https://github.com/siemens-mobile-hacks/ptr89

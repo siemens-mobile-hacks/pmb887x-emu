@@ -7,11 +7,13 @@
 #include <cstdlib>
 #include <filesystem>
 #include <iostream>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "board_config.h"
 #include "config.h"
 #include "qemu_args.h"
 #include "siemens/fullflash.h"
@@ -22,6 +24,11 @@
 #include "utils/string.h"
 #include "utils/temp_file.h"
 
+static std::string detectDevice(const std::string &fullflash);
+static std::vector<std::filesystem::path> getBoardDirectories();
+static std::filesystem::path getBoardDirectory();
+static std::optional<std::filesystem::path> findBoardConfigPath(const std::string &device);
+static std::string resolveDeviceAlias(const std::string &device);
 static std::string getBoardConfigPath(const std::string &device);
 static std::string getQemuBinaryPath();
 struct SimOptions {
@@ -65,7 +72,7 @@ int main(int argc, char *argv[]) {
 	program.add_group("Main options");
 
 	program.add_argument("-d", "--device")
-		.help("Device name or path to a custom board TOML file (detected for Siemens fullflashes by default)")
+		.help("Device name or path to a custom board TOML file (detected from the fullflash by default)")
 		.nargs(1)
 		.default_value("");
 
@@ -382,21 +389,13 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	if (device.empty()) {
-		if (fullflash.empty()) {
-			spdlog::error("Specify --device or --fullflash");
-			return 1;
-		}
-		auto info = SiemensFW::probeFullflash(fullflash);
-		if (!info) {
-			spdlog::error("Can't detect device from fullflash, specify --device");
-			return 1;
-		}
-		device = info->device;
-		spdlog::info("Detected device: {} ({} {})", device, info->vendor, info->model);
+	if (device.empty() && fullflash.empty()) {
+		spdlog::error("Specify --device or --fullflash");
+		return 1;
 	}
 
 	try {
+		device = resolveDeviceAlias(device.empty() ? detectDevice(fullflash) : device);
 		qemuEnv["PMB887X_BOARD"] = getBoardConfigPath(device);
 	} catch (const std::exception &error) {
 		spdlog::error("{}", error.what());
@@ -688,25 +687,78 @@ static std::string getSimDevice(const SimOptions &sim) {
 	return "";
 }
 
+static std::string detectDevice(const std::string &fullflash) {
+	if (auto info = SiemensFW::probeFullflash(fullflash)) {
+		spdlog::info("Detected device: {} ({} {})", info->device, info->vendor, info->model);
+		return info->device;
+	}
+
+	std::vector<uint8_t> data;
+	if (!readFile(fullflash, data))
+		throw std::runtime_error("Can't read fullflash: " + fullflash);
+
+	auto boards = detectBoards(getBoardDirectory(), data);
+	if (boards.empty())
+		throw std::runtime_error("Can't detect device from fullflash, specify --device");
+	if (boards.size() > 1) {
+		std::vector<std::string> devices;
+		for (const auto &board : boards)
+			devices.push_back(board.device);
+		throw std::runtime_error("Fullflash matches several devices (" + joinStrings(devices, ", ") + "), specify --device");
+	}
+
+	spdlog::info("Detected device: {} ({} {})", boards[0].device, boards[0].vendor, boards[0].model);
+	return boards[0].device;
+}
+
+static std::vector<std::filesystem::path> getBoardDirectories() {
+	auto exeDir = getExecutableDirectory();
+	return {
+		exeDir / "../bsp/lib/data/board", // build
+		exeDir / "../share/pmb887x-emu/boards", // installed
+		exeDir / "boards", // portable version
+	};
+}
+
+static std::filesystem::path getBoardDirectory() {
+	for (const auto &dir : getBoardDirectories()) {
+		std::error_code ec;
+		if (std::filesystem::is_directory(dir, ec))
+			return std::filesystem::canonical(dir);
+	}
+	throw std::runtime_error("Board configuration directory not found");
+}
+
+static std::optional<std::filesystem::path> findBoardConfigPath(const std::string &device) {
+	for (const auto &dir : getBoardDirectories()) {
+		auto path = dir / (device + ".toml");
+		std::error_code ec;
+		if (std::filesystem::exists(path, ec))
+			return std::filesystem::canonical(path);
+	}
+	return std::nullopt;
+}
+
+static std::string resolveDeviceAlias(const std::string &device) {
+	if (device.ends_with(".toml") || device.ends_with(".TOML") || findBoardConfigPath(device))
+		return device;
+
+	auto board = findBoardByAlias(getBoardDirectory(), device);
+	if (!board)
+		return device;
+
+	spdlog::info("Device alias {} is {}", device, *board);
+	return *board;
+}
+
 static std::string getBoardConfigPath(const std::string &device) {
 	if (device.ends_with(".toml") || device.ends_with(".TOML"))
 		return device;
 
-	auto file = device + ".toml";
-	auto exeDir = getExecutableDirectory();
-
-	std::vector<std::filesystem::path> variants;
-	variants.emplace_back(exeDir / ("../bsp/lib/data/board/" + file)); // build
-	variants.emplace_back(exeDir / ("../share/pmb887x-emu/boards/" + file)); // installed
-	variants.emplace_back(exeDir / ("boards/" + file)); // portable version
-
-	for (const auto &path : variants) {
-		std::error_code ec;
-		if (std::filesystem::exists(path, ec))
-			return std::filesystem::canonical(path).string();
-	}
-
-	throw std::runtime_error("QEMU configuration file not found: " + device);
+	auto path = findBoardConfigPath(device);
+	if (!path)
+		throw std::runtime_error("QEMU configuration file not found: " + device);
+	return path->string();
 }
 
 static std::string getQemuBinaryPath() {
