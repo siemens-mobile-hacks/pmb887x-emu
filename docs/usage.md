@@ -46,6 +46,9 @@ SIM options (detailed usage):
   --sim-imsi                              Virtual SIM IMSI (15 decimal digits; derived from --sim-operator by default) [nargs=0..1] [default: ""]
   --sim-operator                          Virtual SIM operator code as MCC+MNC (5 or 6 decimal digits) [nargs=0..1] [default: "00101"]
 
+Memory card options (detailed usage):
+  --sdcard                                SD card image, or a directory presented as a FAT16 card whose changes are lost on exit
+
 Startup options (detailed usage):
   --startup                               Startup scenario from the board config [nargs=0..1] [default: "ONLINE"]
 
@@ -74,6 +77,7 @@ Trace options (detailed usage):
 
 QEMU options (detailed usage):
   --qemu-monitor                          QEMU monitor
+  --no-quirks                             Disable board quirks that hide firmware races on the faster emulated CPU
   --qemu-accel                            QEMU -accel options (default: tcg,vcpu-timers=on,cross-page-links=on, or tcg with --qemu-icount)
   --qemu-icount                           QEMU -icount options, for example shift=3,sleep=off
   --qemu-run-with-gdb                     Run emulator using GDB (debug)
@@ -153,6 +157,27 @@ pmb887x-emu --fullflash KE970.bin --device lg-ke970
 The virtual SIM is enabled by default. Use `--sim none` to disable it. Operator-locked firmware may require matching `--sim-operator` or `--sim-imsi`.
 
 See [SIM card setup](sim-card.md).
+
+## Memory card
+`--sdcard` puts a memory card into the phone's slot.
+Without it the slot stays empty.
+
+The option takes:
+- a card image, partitioned and formatted like a real card;
+- a directory, presented as a 504 MB FAT16 card whose changes are lost on exit.
+
+Limitations:
+- An image larger than 2 GiB becomes an SDHC card, which these phones do not support.
+- The image size must be a power of two, or a multiple of 256 KiB up to 1 GiB.
+
+Create a 1 GiB card with one FAT16 partition:
+
+```
+truncate -s 1G card.img
+echo ',,6' | sfdisk card.img
+mkfs.fat -F 16 --offset 2048 card.img
+pmb887x-emu --fullflash EL71.bin --device siemens-el71 --sdcard card.img
+```
 
 ## Keyboard
 You can press phone keys using the following computer keyboard shortcuts. Only keys available on the selected board are

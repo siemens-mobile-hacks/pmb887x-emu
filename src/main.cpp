@@ -204,6 +204,12 @@ int main(int argc, char *argv[]) {
 		.nargs(1)
 		.default_value("");
 
+	program.add_group("Memory card options");
+
+	program.add_argument("--sdcard")
+		.help("SD card image, or a directory presented as a FAT16 card whose changes are lost on exit")
+		.nargs(1);
+
 	program.add_group("Startup options");
 
 	program.add_argument("--startup")
@@ -295,6 +301,11 @@ int main(int argc, char *argv[]) {
 
 	program.add_argument("--memory-timing")
 		.help("Model cache, memory and peripheral bus stalls")
+		.default_value(false)
+		.implicit_value(true);
+
+	program.add_argument("--no-quirks")
+		.help("Disable board quirks that hide firmware races on the faster emulated CPU")
 		.default_value(false)
 		.implicit_value(true);
 
@@ -551,6 +562,8 @@ int main(int argc, char *argv[]) {
 		machine += ",gsm-network=gsm0";
 	}
 
+	if (program.get<bool>("--no-quirks"))
+		machine += ",quirks=off";
 	qemuArgs.emplace_back("-machine");
 	qemuArgs.emplace_back(machine);
 
@@ -568,6 +581,14 @@ int main(int argc, char *argv[]) {
 			qemuArgs.emplace_back("-drive");
 			qemuArgs.emplace_back("if=pflash,readonly=on,format=raw,file=" + fullflash);
 		}
+	}
+
+	if (auto sdcard = program.present("--sdcard")) {
+		std::string file = *sdcard;
+		if (std::filesystem::is_directory(file))
+			file = "fat:16:" + file + ",snapshot=on";
+		qemuArgs.emplace_back("-drive");
+		qemuArgs.emplace_back("if=sd,index=0,format=raw,file=" + file);
 	}
 
 	std::vector<std::string> debugChannels;
