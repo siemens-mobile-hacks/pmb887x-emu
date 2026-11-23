@@ -273,7 +273,6 @@ def main():
         test_command = [
             ROOT / "bsp" / "boot.sh",
             build_dir / (test_name + ".bin"),
-            "--no-ign",
             "--device", test_serial,
         ]
         test_cwd = UNIT_ROOT
