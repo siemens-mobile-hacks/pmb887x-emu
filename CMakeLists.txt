@@ -108,6 +108,7 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Windows")
 		--enable-tcg
 		--enable-slirp
 		--enable-vvfat
+		--enable-qcow1
 		--enable-lto
 		--enable-strip
 	)
@@ -182,6 +183,7 @@ else()
 		--enable-capstone
 		--enable-slirp
 		--enable-vvfat
+		--enable-qcow1
 	)
 
 	if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")

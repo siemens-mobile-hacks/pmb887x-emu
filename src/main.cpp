@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
 	program.add_group("Memory card options");
 
 	program.add_argument("--sdcard")
-		.help("SD card image, or a directory presented as a FAT16 card whose changes are lost on exit")
+		.help("SD card image, or a directory presented as a writable FAT16 card")
 		.nargs(1);
 
 	program.add_group("Startup options");
@@ -586,7 +586,7 @@ int main(int argc, char *argv[]) {
 	if (auto sdcard = program.present("--sdcard")) {
 		std::string file = *sdcard;
 		if (std::filesystem::is_directory(file))
-			file = "fat:16:" + file + ",snapshot=on";
+			file = "fat:rw:16:" + file;
 		qemuArgs.emplace_back("-drive");
 		qemuArgs.emplace_back("if=sd,index=0,format=raw,file=" + file);
 	}
